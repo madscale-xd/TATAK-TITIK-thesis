@@ -7,14 +7,17 @@ public class ItemPickup : MonoBehaviour
 
     private bool playerInRange = false;
     private ItemPromptManager promptManager;
+    private PickupMessageUI pickupMessage;
 
     private void Start()
     {
         promptManager = FindObjectOfType<ItemPromptManager>();
+        pickupMessage = FindObjectOfType<PickupMessageUI>();
+
         if (promptManager == null)
-        {
             Debug.LogError("ItemPromptManager not found in scene!");
-        }
+        if (pickupMessage == null)
+            Debug.LogError("PickupMessageUI not found in scene!");
     }
 
     void Update()
@@ -23,6 +26,10 @@ public class ItemPickup : MonoBehaviour
         {
             InventoryManager.Instance.AddItem(itemName, amount);
             promptManager.HidePrompt();
+
+            // Show fading pickup message
+            pickupMessage.ShowMessage($"Picked up {itemName}");
+
             Destroy(gameObject);
         }
     }

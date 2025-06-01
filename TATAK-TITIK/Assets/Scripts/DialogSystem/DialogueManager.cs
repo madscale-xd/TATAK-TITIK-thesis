@@ -21,6 +21,9 @@ public class DialogueManager : MonoBehaviour
     private string currentDialogue = "";
     private NPCDialogueTrigger currentNPC = null;
 
+    private string[] currentDialogueLines;
+    private int currentLineIndex = 0;
+
     void Start()
     {
         SetCanvasGroup(pressEPromptGroup, 0, false);
@@ -40,21 +43,28 @@ public class DialogueManager : MonoBehaviour
         {
             if (!dialogueVisible)
             {
-                StartDialogue(currentNPC.dialogue);
+                StartDialogue(currentNPC.GetDialogueLines());
             }
             else
             {
                 if (typewriterCoroutine != null)
                 {
-                    // Skip typewriter effect - show full text immediately
                     StopCoroutine(typewriterCoroutine);
                     typewriterCoroutine = null;
                     dialogueText.text = currentDialogue;
                 }
                 else
                 {
-                    // Close dialogue panel and show prompt again
-                    CloseDialogue();
+                    currentLineIndex++;
+                    if (currentLineIndex < currentDialogueLines.Length)
+                    {
+                        currentDialogue = currentDialogueLines[currentLineIndex];
+                        typewriterCoroutine = StartCoroutine(TypeText(currentDialogue));
+                    }
+                    else
+                    {
+                        CloseDialogue();
+                    }
                 }
             }
         }
@@ -104,12 +114,14 @@ public class DialogueManager : MonoBehaviour
         SetCanvasGroup(dialoguePanelGroup, 0, false);
     }
 
-    private void StartDialogue(string dialogue)
+    private void StartDialogue(string[] dialogueLines)
     {
-        if (isFading) return;
+        if (isFading || dialogueLines.Length == 0) return;
 
-        currentDialogue = dialogue;
+        currentDialogueLines = dialogueLines;
+        currentLineIndex = 0;
         dialogueVisible = true;
+        currentDialogue = currentDialogueLines[currentLineIndex];
         StartCoroutine(TransitionToDialogue());
     }
 

@@ -4,6 +4,7 @@ using UnityEngine;
 public class InventoryManager : MonoBehaviour
 {
     public static InventoryManager Instance; // Singleton so you can easily call from anywhere
+    public InventoryUI inventoryUI; // assign in inspector
 
     public List<InventoryItem> items = new List<InventoryItem>();
 
@@ -37,6 +38,9 @@ public class InventoryManager : MonoBehaviour
         }
 
         Debug.Log($"Picked up {amount}x {itemName}");
+        
+        if (inventoryUI != null)
+            inventoryUI.UpdateInventoryUI();
     }
 
     public void PrintInventory()
