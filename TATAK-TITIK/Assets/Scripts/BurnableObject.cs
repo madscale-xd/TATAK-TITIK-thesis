@@ -9,7 +9,7 @@ public class BurnableObject : MonoBehaviour
     private bool isBurning = false;
     private Renderer objectRenderer;
     private Color originalColor;
-    private float burnProgress = 0f;
+    private float burnProgress = 2f;
 
     void Start()
     {
@@ -22,25 +22,28 @@ public class BurnableObject : MonoBehaviour
     {
         if (isBurning) return;
 
-        // Check if player has the Torch
-        InventoryItem torch = InventoryManager.Instance.items.Find(i => i.itemName == requiredItem && i.quantity > 0);
-
-        if (torch != null)
+        // Check if the equipped item is the required item
+        if (InventoryManager.Instance.equippedItem == requiredItem)
         {
-            // Consume one Torch
-            torch.quantity--;
-            if (torch.quantity <= 0)
-                InventoryManager.Instance.items.Remove(torch);
+            // Consume one instance of the equipped item
+            InventoryItem equipped = InventoryManager.Instance.items.Find(i => i.itemName == requiredItem && i.quantity > 0);
 
-            InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+            if (equipped != null)
+            {
+                equipped.quantity--;
+                if (equipped.quantity <= 0)
+                    InventoryManager.Instance.items.Remove(equipped);
 
-            // Start burning
-            isBurning = true;
-            Debug.Log($"{gameObject.name} is burning!");
+                InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+
+                // Start burning
+                isBurning = true;
+                Debug.Log($"{gameObject.name} is burning!");
+            }
         }
         else
         {
-            Debug.Log("You need a Torch to burn this.");
+            Debug.Log($"You need to equip a {requiredItem} to burn this.");
         }
     }
 

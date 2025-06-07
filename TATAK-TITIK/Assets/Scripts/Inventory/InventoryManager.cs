@@ -8,6 +8,8 @@ public class InventoryManager : MonoBehaviour
 
     public List<InventoryItem> items = new List<InventoryItem>();
 
+    public string equippedItem = "";
+
     void Awake()
     {
         if (Instance == null)
@@ -20,9 +22,19 @@ public class InventoryManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.I))
         {
-            InventoryManager.Instance.PrintInventory();
+            PrintInventory();
+        }
+
+        // Equip item from 1–9 (slot 0–8)
+        for (int i = 0; i < 9; i++)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            {
+                EquipItemBySlot(i);
+            }
         }
     }
+
 
     public void AddItem(string itemName, int amount = 1)
     {
@@ -34,11 +46,17 @@ public class InventoryManager : MonoBehaviour
         }
         else
         {
+            if (items.Count >= 9)
+            {
+                Debug.LogWarning("Inventory is full (max 9 slots)!");
+                return;
+            }
+
             items.Add(new InventoryItem(itemName, amount));
         }
 
         Debug.Log($"Picked up {amount}x {itemName}");
-        
+
         if (inventoryUI != null)
             inventoryUI.UpdateInventoryUI();
     }
@@ -49,6 +67,28 @@ public class InventoryManager : MonoBehaviour
         foreach (var item in items)
         {
             Debug.Log($"{item.itemName} x{item.quantity}");
+        }
+    }
+
+    public void EquipItemBySlot(int slotIndex)
+    {
+        if (slotIndex >= 0 && slotIndex < items.Count)
+        {
+            InventoryItem item = items[slotIndex];
+            if (item.quantity > 0)
+            {
+                equippedItem = item.itemName;
+                Debug.Log($"Equipped: {equippedItem} (from slot {slotIndex + 1})");
+                FloatingNotifier.Instance.ShowMessage($"You equipped {equippedItem}(from slot {slotIndex + 1})", Color.white);
+            }
+            else
+            {
+                Debug.Log($"Slot {slotIndex + 1} is empty.");
+            }
+        }
+        else
+        {
+            Debug.Log($"No item in slot {slotIndex + 1}.");
         }
     }
 }
