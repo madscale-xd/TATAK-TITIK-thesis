@@ -1,18 +1,18 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class JournalTrigger : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    public string keyword;         // The key identifier (like "ancientSword")
+    public string displayWord;     // The actual word shown in journal (like "Ancient Sword")
 
-    // Update is called once per frame
-    void Update()
+    private bool hasTriggered = false;
+
+    public void AddEntryToJournal()
     {
-        
+        if (hasTriggered) return;
+
+        JournalManager.Instance.AddEntry(keyword, displayWord);
+        hasTriggered = true;
     }
 }
+

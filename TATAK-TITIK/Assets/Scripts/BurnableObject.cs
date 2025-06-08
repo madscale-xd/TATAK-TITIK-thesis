@@ -7,15 +7,24 @@ public class BurnableObject : MonoBehaviour
     public float colorChangeSpeed = 2f;
 
     private bool isBurning = false;
-    private Renderer objectRenderer;
+    private Renderer[] renderers;
     private Color originalColor;
-    private float burnProgress = 2f;
+    private float burnProgress = 0f;
 
     void Start()
     {
-        objectRenderer = GetComponent<Renderer>();
-        if (objectRenderer != null)
-            originalColor = objectRenderer.material.color;
+        // Get all renderers in this object and its children
+        renderers = GetComponentsInChildren<Renderer>();
+
+        if (renderers.Length > 0)
+        {
+            // Assume they all start with the same color (use first as base)
+            originalColor = renderers[0].material.color;
+        }
+        else
+        {
+            Debug.LogWarning($"{gameObject.name} has no Renderer components to burn.");
+        }
     }
 
     public void TryBurn()
@@ -39,20 +48,29 @@ public class BurnableObject : MonoBehaviour
                 // Start burning
                 isBurning = true;
                 Debug.Log($"{gameObject.name} is burning!");
+                FloatingNotifier.Instance.ShowMessage($"{gameObject.name} is burning!", Color.white);
             }
         }
         else
         {
             Debug.Log($"You need to equip a {requiredItem} to burn this.");
+            FloatingNotifier.Instance.ShowMessage($"You need to equip a {requiredItem} to burn this.", Color.red);
         }
     }
 
     void Update()
     {
-        if (isBurning && objectRenderer != null)
+        if (isBurning && renderers != null)
         {
             burnProgress += Time.deltaTime * colorChangeSpeed;
-            objectRenderer.material.color = Color.Lerp(originalColor, burnedColor, burnProgress);
+            foreach (Renderer r in renderers)
+            {
+                if (r != null)
+                {
+                    Color lerpedColor = Color.Lerp(originalColor, burnedColor, Mathf.Clamp01(burnProgress));
+                    r.material.color = lerpedColor;
+                }
+            }
         }
     }
 }

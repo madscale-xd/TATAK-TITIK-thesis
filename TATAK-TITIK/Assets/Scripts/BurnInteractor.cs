@@ -14,17 +14,17 @@ public class BurnInteractor : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        BurnableObject burnable = other.GetComponent<BurnableObject>();
+        BurnableObject burnable = other.GetComponentInParent<BurnableObject>();
         if (burnable != null)
         {
             currentTarget = burnable;
-            Debug.Log("Press E to burn the object.");
+            FloatingNotifier.Instance.ShowMessage("Press E to burn the object.", Color.red);
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.GetComponent<BurnableObject>() == currentTarget)
+        if (other.GetComponentInParent<BurnableObject>() == currentTarget)
         {
             currentTarget = null;
         }
