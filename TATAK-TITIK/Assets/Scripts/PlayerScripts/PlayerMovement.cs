@@ -27,6 +27,8 @@ public class PlayerMovement : MonoBehaviour
 
         if (playerVisual != null)
             originalY = playerVisual.localPosition.y;
+
+        Debug.Log("PlayerMovement START at " + transform.position);
     }
 
     void Update()
