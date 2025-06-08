@@ -70,14 +70,30 @@ public class SaveLoadManager : MonoBehaviour
             positionToLoad = data.GetPosition();
             shouldApplyPosition = true;
 
-            Time.timeScale = 1f;
-            SceneManager.LoadScene("TestScene");
-            Debug.Log($"Loading scene for save slot {slot}");
+            Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
         else
         {
-            Debug.LogWarning($"No save file found in slot {slot}");
+            Debug.LogWarning($"No save file found in slot {slot}. Starting fresh.");
+            shouldApplyPosition = false; // Ensure nothing is applied
         }
+
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("TestScene");
+    }
+
+    public void ClearGame(int slot)
+    {
+        if (slot < 1 || slot > maxSaveSlots)
+        {
+            Debug.LogError("Clear slot out of range!");
+            return;
+        }
+
+        SaveSystem.Delete(slot);
+        Debug.Log($"Save slot {slot} has been cleared.");
+
+        LoadGame(slot); // This will try to load, but if nothing exists, it'll just load the scene normally.
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -136,4 +152,11 @@ public class SaveLoadManager : MonoBehaviour
 
     public void SaveSlot5() => SaveGame(5);
     public void LoadSlot5() => LoadGame(5);
+
+    public void ClearSlot1() => ClearGame(1);
+    public void ClearSlot2() => ClearGame(2);
+    public void ClearSlot3() => ClearGame(3);
+    public void ClearSlot4() => ClearGame(4);
+    public void ClearSlot5() => ClearGame(5);
+
 }

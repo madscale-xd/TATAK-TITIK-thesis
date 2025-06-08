@@ -21,6 +21,19 @@ public static class SaveSystem
         }
         return null;
     }
+    public static void Delete(int slot)
+    {
+        string path = GetPath(slot);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+            Debug.Log($"[SaveSystem] Deleted save file at slot {slot}");
+        }
+        else
+        {
+            Debug.LogWarning($"[SaveSystem] No save file to delete at slot {slot}");
+        }
+    }
 
     public static bool SaveExists(int slot) => File.Exists(GetPath(slot));
 }
