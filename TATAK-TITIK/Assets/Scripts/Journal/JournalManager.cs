@@ -5,6 +5,7 @@ using System.Collections.Generic;
 public class JournalManager : MonoBehaviour
 {
     public static JournalManager Instance;
+    private SceneButtonManager SBM;
 
     [Header("Prefabs & Containers")]
     public GameObject entrySlotPrefab; // Prefab of the journal entry slot UI (Text + InputField)
@@ -16,7 +17,6 @@ public class JournalManager : MonoBehaviour
 
     private int maxEntriesPerPage = 3;
     private int currentPageIndex = 0;
-    private bool isJournalOpen = false;
 
     private void Awake()
     {
@@ -25,21 +25,10 @@ public class JournalManager : MonoBehaviour
     }
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.J))
+        SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
+        if (sbm.IsJKeyEnabled() && Input.GetKeyDown(KeyCode.J))
         {
-            isJournalOpen = !isJournalOpen;
-            pagesParent.gameObject.SetActive(isJournalOpen);
-
-            if (isJournalOpen)
-            {
-                // Freeze time
-                Time.timeScale = 0f;
-            }
-            else
-            {
-                // Resume time
-                Time.timeScale = 1f;
-            }
+            sbm.ToggleJournalPanelJ();
         }
     }
 
