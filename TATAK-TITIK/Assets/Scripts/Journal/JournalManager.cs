@@ -23,6 +23,17 @@ public class JournalManager : MonoBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
+
+    private void Start()
+    {
+        SaveLoadManager slm = FindObjectOfType<SaveLoadManager>();
+        if (slm != null && SaveLoadManager.pendingJournalEntries != null)
+        {
+            LoadEntries(SaveLoadManager.pendingJournalEntries);
+            SaveLoadManager.pendingJournalEntries = null; // Clear after applying
+        }
+    }
+
     private void Update()
     {
         SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
@@ -77,7 +88,7 @@ public class JournalManager : MonoBehaviour
                 TMP_InputField inputField = slotGO.transform.Find("InputField").GetComponent<TMP_InputField>();
 
                 // Setup UI with entry data
-               label.text = entries[entryIndex].displayWord;
+                label.text = entries[entryIndex].displayWord;
                 inputField.text = entries[entryIndex].playerNote;
                 inputField.interactable = true;
                 inputField.placeholder.GetComponent<TMP_Text>().text = "?";
@@ -119,5 +130,16 @@ public class JournalManager : MonoBehaviour
             currentPageIndex--;
             pages[currentPageIndex].SetActive(true);
         }
+    }
+
+    public List<JournalEntry> GetEntries()
+    {
+        return new List<JournalEntry>(entries);
+    }
+
+    public void LoadEntries(List<JournalEntry> loadedEntries)
+    {
+        entries = loadedEntries ?? new List<JournalEntry>();
+        RefreshJournalUI();
     }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using System.Collections.Generic;
 
 public class SaveLoadManager : MonoBehaviour
 {
@@ -10,6 +11,8 @@ public class SaveLoadManager : MonoBehaviour
 
     private Vector3 positionToLoad;
     private bool shouldApplyPosition = false;
+
+    public static List<JournalEntry> pendingJournalEntries;
 
     private void Start()
     {
@@ -51,7 +54,7 @@ public class SaveLoadManager : MonoBehaviour
             return;
         }
 
-        SaveData data = new SaveData(playerTransform.position);
+        SaveData data = new SaveData(playerTransform.position, JournalManager.Instance.GetEntries());
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
     }
@@ -69,6 +72,8 @@ public class SaveLoadManager : MonoBehaviour
         {
             positionToLoad = data.GetPosition();
             shouldApplyPosition = true;
+
+            pendingJournalEntries = data.journalEntries;
 
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }

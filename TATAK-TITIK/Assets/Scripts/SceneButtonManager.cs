@@ -10,6 +10,7 @@ public class SceneButtonManager : MonoBehaviour
 
     private bool jKeyEnabled = true;
     private bool escKeyEnabled = true;
+    private bool eKeyEnabled = true;
 
     public void GoToMainMenu()
     {
@@ -21,6 +22,7 @@ public class SceneButtonManager : MonoBehaviour
         bool isNowActive = !EXITPanel.activeSelf;
         EXITPanel.SetActive(isNowActive);
         DisableJKey();
+        DisableEKey();
 
         DeactivateIfValid(InventoryPanel);
 
@@ -31,6 +33,7 @@ public class SceneButtonManager : MonoBehaviour
             ToggleIfValid(InventoryPanel);
             EnableJKey();
             EnableEscKey();
+            EnableEKey();
         }
     }
 
@@ -50,6 +53,7 @@ public class SceneButtonManager : MonoBehaviour
         DeactivateIfValid(InventoryPanel);
         DisableEscKey();
         EnableJKey();
+        DisableEKey();
     }
 
     public void ToggleJournalPanelJ() // JOURNAL to RESUME / PAUSE
@@ -63,6 +67,7 @@ public class SceneButtonManager : MonoBehaviour
             Time.timeScale = 0f;
             DeactivateIfValid(InventoryPanel);
             DisableEscKey();
+            DisableEKey();
         }
         else
         {
@@ -71,6 +76,7 @@ public class SceneButtonManager : MonoBehaviour
             ToggleIfValid(InventoryPanel);
             EnableJKey();
             EnableEscKey();
+            EnableEKey();
         }
     }
 
@@ -85,6 +91,7 @@ public class SceneButtonManager : MonoBehaviour
         ToggleIfValid(EXITPanel);
         ToggleIfValid(SAVEPanel);
         EnableEscKey();
+        EnableEKey();
     }
 
     // New methods to enable/disable J key
@@ -109,6 +116,16 @@ public class SceneButtonManager : MonoBehaviour
         escKeyEnabled = true;
     }
 
+    public void DisableEKey()
+    {
+        eKeyEnabled = false;
+    }
+
+    public void EnableEKey()
+    {
+        eKeyEnabled = true;
+    }
+
     // Call this method from your input check/update method to test if key is allowed
     public bool IsJKeyEnabled()
     {
@@ -118,6 +135,11 @@ public class SceneButtonManager : MonoBehaviour
     public bool IsEscKeyEnabled()
     {
         return escKeyEnabled;
+    }
+
+    public bool IsEKeyEnabled()
+    {
+        return eKeyEnabled;
     }
 
     private void ToggleIfValid(GameObject panel)

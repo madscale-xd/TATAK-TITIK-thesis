@@ -3,10 +3,12 @@ using UnityEngine;
 public class PlayerInteraction : MonoBehaviour
 {
     private NPCDialogueTrigger currentNPC;
+    private SceneButtonManager SBM;
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E) && currentNPC != null)
+        SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
+        if (Input.GetKeyDown(KeyCode.E) && currentNPC != null && sbm.IsEKeyEnabled())
         {
             // Call JournalTrigger on the NPC if it has one
             JournalTrigger jt = currentNPC.GetComponent<JournalTrigger>();

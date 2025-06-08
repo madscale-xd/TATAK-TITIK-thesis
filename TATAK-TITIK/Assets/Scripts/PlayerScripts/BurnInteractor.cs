@@ -6,7 +6,8 @@ public class BurnInteractor : MonoBehaviour
 
     void Update()
     {
-        if (currentTarget != null && Input.GetKeyDown(KeyCode.E))
+        SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
+        if (currentTarget != null && Input.GetKeyDown(KeyCode.E) && sbm.IsEKeyEnabled())
         {
             currentTarget.TryBurn();
         }

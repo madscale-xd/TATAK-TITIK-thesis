@@ -23,6 +23,7 @@ public class DialogueManager : MonoBehaviour
 
     private string[] currentDialogueLines;
     private int currentLineIndex = 0;
+    private SceneButtonManager SBM;
 
     void Start()
     {
@@ -32,6 +33,7 @@ public class DialogueManager : MonoBehaviour
 
     void Update()
     {
+        SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
         if (currentNPC == null)
         {
             if (dialogueVisible || pressEPromptGroup.alpha > 0)
@@ -39,7 +41,7 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.E) && !isFading)
+        if (Input.GetKeyDown(KeyCode.E) && !isFading && sbm.IsEKeyEnabled())
         {
             if (!dialogueVisible)
             {
