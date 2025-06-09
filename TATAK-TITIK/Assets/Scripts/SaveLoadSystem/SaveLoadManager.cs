@@ -20,6 +20,7 @@ public class SaveLoadManager : MonoBehaviour
     private bool shouldResetInventoryAfterLoad = false;
 
     public static SaveLoadManager Instance;
+    private HashSet<string> collectedPickupIDs = new HashSet<string>();
 
     private void Awake()
     {
@@ -81,11 +82,12 @@ public class SaveLoadManager : MonoBehaviour
         }
 
         SaveData data = new SaveData(
-            playerTransform.position, 
-            JournalManager.Instance.GetEntries(), 
-            inventoryData, 
+            playerTransform.position,
+            JournalManager.Instance.GetEntries(),
+            inventoryData,
             InventoryManager.Instance.equippedItem
         );
+        data.collectedPickupIDs = new List<string>(collectedPickupIDs);
 
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
@@ -109,6 +111,7 @@ public class SaveLoadManager : MonoBehaviour
 
             // Load inventory from saved data
             InventoryManager.Instance.LoadInventory(data.inventoryItems, data.equippedItem, itemDatabase);
+            collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs);
 
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
@@ -125,7 +128,7 @@ public class SaveLoadManager : MonoBehaviour
     }
 
 
-   public void ClearGame(int slot)
+    public void ClearGame(int slot)
     {
         if (slot < 1 || slot > maxSaveSlots)
         {
@@ -136,9 +139,15 @@ public class SaveLoadManager : MonoBehaviour
         SaveSystem.Delete(slot);
         Debug.Log($"Save slot {slot} has been cleared.");
 
-        shouldResetInventoryAfterLoad = true; // Set the flag to reset inventory after loading the scene
-        LoadGame(slot); // This will load the scene
+        shouldResetInventoryAfterLoad = true; // Reset inventory on scene load
+
+        // Clear collected pickup IDs
+        collectedPickupIDs.Clear();
+
+        LoadGame(slot); // Reload scene
     }
+
+      
 
     private IEnumerator ResetInventoryDelayed()
     {
@@ -207,5 +216,14 @@ public class SaveLoadManager : MonoBehaviour
             movement.enabled = true;
 
         shouldApplyPosition = false;
+    }
+    public void MarkPickupCollected(string pickupID)
+    {
+        collectedPickupIDs.Add(pickupID);
+    }
+
+    public bool IsPickupCollected(string pickupID)
+    {
+        return collectedPickupIDs.Contains(pickupID);
     }
 }

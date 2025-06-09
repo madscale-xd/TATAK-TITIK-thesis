@@ -1,9 +1,11 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ItemPickup : MonoBehaviour
 {
     public string itemName = "Mushroom";
     public int amount = 1;
+    public string uniqueID; // Unique identifier for this pickup
 
     private bool playerInRange = false;
     private ItemPromptManager promptManager;
@@ -18,6 +20,13 @@ public class ItemPickup : MonoBehaviour
             Debug.LogError("ItemPromptManager not found in scene!");
         if (pickupMessage == null)
             Debug.LogError("PickupMessageUI not found in scene!");
+
+        // Disable pickup if already collected
+        if (SaveLoadManager.Instance != null &&
+            SaveLoadManager.Instance.IsPickupCollected(uniqueID))
+        {
+            gameObject.SetActive(false);
+        }
     }
 
     void Update()
@@ -26,11 +35,12 @@ public class ItemPickup : MonoBehaviour
         {
             InventoryManager.Instance.AddItem(itemName, amount);
             promptManager.HidePrompt();
-
-            // Show fading pickup message
             pickupMessage.ShowMessage($"Picked up {itemName}");
 
-            Destroy(gameObject);
+            // Register this pickup as collected
+            SaveLoadManager.Instance.MarkPickupCollected(uniqueID);
+
+            gameObject.SetActive(false);
         }
     }
 

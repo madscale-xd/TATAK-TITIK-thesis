@@ -961,6 +961,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: Mushroom
   amount: 1
+  uniqueID: 1
 --- !u!65 &197842189
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2255,6 +2256,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: Torch
   amount: 1
+  uniqueID: 2
 --- !u!65 &427426719
 BoxCollider:
   m_ObjectHideFlags: 0

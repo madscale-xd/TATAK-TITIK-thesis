@@ -8,6 +8,7 @@ public class SaveData
     public List<JournalEntry> journalEntries;
     public List<InventoryItemData> inventoryItems;
     public string equippedItem;
+    public List<string> collectedPickupIDs = new List<string>();
 
     public SaveData(Vector3 position, List<JournalEntry> journal, List<InventoryItemData> inventory, string equipped)
     {
