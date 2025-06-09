@@ -10,13 +10,37 @@ public class InventoryManager : MonoBehaviour
 
     public string equippedItem = "";
 
-    void Awake()
+    public Sprite blankIcon; // assign a blank black sprite in inspector
+
+    void Start()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
     }
+
+    void Awake()
+{
+    if (Instance == null)
+    {
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        // Find InventoryUI dynamically by name "InventoryPanel"
+        GameObject inventoryPanel = GameObject.Find("InventoryPanel");
+        if (inventoryPanel != null)
+        {
+            inventoryUI = inventoryPanel.GetComponent<InventoryUI>();
+            if (inventoryUI == null)
+                Debug.LogWarning("InventoryUI component not found on InventoryPanel!");
+        }
+        else
+        {
+            Debug.LogWarning("InventoryPanel GameObject not found in scene.");
+        }
+    }
+    else
+    {
+        Destroy(gameObject);
+    }
+}
 
     void Update()
     {
@@ -56,9 +80,25 @@ public class InventoryManager : MonoBehaviour
         }
 
         Debug.Log($"Picked up {amount}x {itemName}");
-
+        inventoryUI = FindObjectOfType<InventoryUI>();
         if (inventoryUI != null)
             inventoryUI.UpdateInventoryUI();
+    }
+
+    public void ResetInventory()
+    {
+        inventoryUI = FindObjectOfType<InventoryUI>();
+        items.Clear();
+        equippedItem = "";
+
+        if (inventoryUI != null)
+        {
+            inventoryUI.UpdateInventoryUI();
+        }
+        else
+        {
+            Debug.LogWarning("Inventory UI reference is null in ResetInventory!");
+        }
     }
 
     public void PrintInventory()
@@ -90,5 +130,27 @@ public class InventoryManager : MonoBehaviour
         {
             Debug.Log($"No item in slot {slotIndex + 1}.");
         }
+    }
+
+    public void LoadInventory(List<InventoryItemData> dataList, string equipped, ItemDatabase database)
+    {
+        items.Clear();
+
+        foreach (var data in dataList)
+        {
+            InventoryItem item = new InventoryItem(data.itemName, data.quantity);
+            
+            if (database != null)
+                item.icon = database.GetIcon(data.itemName);
+            else
+                item.icon = null;  // No database = no icon
+            
+            items.Add(item);
+        }
+
+        equippedItem = equipped;
+
+        if (inventoryUI != null)
+            inventoryUI.UpdateInventoryUI();
     }
 }

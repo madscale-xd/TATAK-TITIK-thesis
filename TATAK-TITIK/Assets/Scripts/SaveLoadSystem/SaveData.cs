@@ -4,13 +4,17 @@ using System.Collections.Generic;
 [System.Serializable]
 public class SaveData
 {
-    public float[] playerPosition; // x, y, z
+    public float[] playerPosition;
     public List<JournalEntry> journalEntries;
+    public List<InventoryItemData> inventoryItems;
+    public string equippedItem;
 
-    public SaveData(Vector3 position, List<JournalEntry> entries)
+    public SaveData(Vector3 position, List<JournalEntry> journal, List<InventoryItemData> inventory, string equipped)
     {
         playerPosition = new float[] { position.x, position.y, position.z };
-        journalEntries = entries;
+        journalEntries = journal;
+        inventoryItems = inventory;
+        equippedItem = equipped;
     }
 
     public Vector3 GetPosition() => new Vector3(playerPosition[0], playerPosition[1], playerPosition[2]);

@@ -14,10 +14,29 @@ public class SaveLoadManager : MonoBehaviour
 
     public static List<JournalEntry> pendingJournalEntries;
 
+    // Reference to your ItemDatabase (assign in inspector)
+    public ItemDatabase itemDatabase;
+
+    private bool shouldResetInventoryAfterLoad = false;
+
+    public static SaveLoadManager Instance;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // Keep this instance alive
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject); // Destroy duplicate
+        }
+    }
+
     private void Start()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
-        DontDestroyOnLoad(gameObject); // Persist across scenes
     }
 
     private void OnDestroy()
@@ -54,7 +73,20 @@ public class SaveLoadManager : MonoBehaviour
             return;
         }
 
-        SaveData data = new SaveData(playerTransform.position, JournalManager.Instance.GetEntries());
+        // Collect inventory data from InventoryManager
+        List<InventoryItemData> inventoryData = new List<InventoryItemData>();
+        foreach (var item in InventoryManager.Instance.items)
+        {
+            inventoryData.Add(new InventoryItemData(item.itemName, item.quantity));
+        }
+
+        SaveData data = new SaveData(
+            playerTransform.position, 
+            JournalManager.Instance.GetEntries(), 
+            inventoryData, 
+            InventoryManager.Instance.equippedItem
+        );
+
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
     }
@@ -75,19 +107,25 @@ public class SaveLoadManager : MonoBehaviour
 
             pendingJournalEntries = data.journalEntries;
 
+            // Load inventory from saved data
+            InventoryManager.Instance.LoadInventory(data.inventoryItems, data.equippedItem, itemDatabase);
+
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
         else
         {
             Debug.LogWarning($"No save file found in slot {slot}. Starting fresh.");
             shouldApplyPosition = false; // Ensure nothing is applied
+
+            // Don't clear inventory here! Clear in ClearGame instead.
         }
 
         Time.timeScale = 1f;
-        SceneManager.LoadScene("TestScene");
+        SceneManager.LoadScene("TestScene", LoadSceneMode.Single);
     }
 
-    public void ClearGame(int slot)
+
+   public void ClearGame(int slot)
     {
         if (slot < 1 || slot > maxSaveSlots)
         {
@@ -98,11 +136,40 @@ public class SaveLoadManager : MonoBehaviour
         SaveSystem.Delete(slot);
         Debug.Log($"Save slot {slot} has been cleared.");
 
-        LoadGame(slot); // This will try to load, but if nothing exists, it'll just load the scene normally.
+        shouldResetInventoryAfterLoad = true; // Set the flag to reset inventory after loading the scene
+        LoadGame(slot); // This will load the scene
+    }
+
+    private IEnumerator ResetInventoryDelayed()
+    {
+        yield return null;
+
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.ResetInventory();
+
+            // 🔁 Update UI if you have a reference to it
+            InventoryUI ui = FindObjectOfType<InventoryUI>();
+            if (ui != null)
+            {
+                ui.UpdateInventoryUI();
+            }
+        }
+        else
+        {
+            Debug.LogWarning("InventoryManager instance not found when resetting inventory.");
+        }
+
+        shouldResetInventoryAfterLoad = false;
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (shouldResetInventoryAfterLoad)
+        {
+            StartCoroutine(ResetInventoryDelayed());
+        }
+
         if (shouldApplyPosition)
         {
             StartCoroutine(SetPlayerPositionNextFrame());
@@ -141,27 +208,4 @@ public class SaveLoadManager : MonoBehaviour
 
         shouldApplyPosition = false;
     }
-
-    // Button helper methods
-    public void SaveSlot1() => SaveGame(1);
-    public void LoadSlot1() => LoadGame(1);
-
-    public void SaveSlot2() => SaveGame(2);
-    public void LoadSlot2() => LoadGame(2);
-
-    public void SaveSlot3() => SaveGame(3);
-    public void LoadSlot3() => LoadGame(3);
-
-    public void SaveSlot4() => SaveGame(4);
-    public void LoadSlot4() => LoadGame(4);
-
-    public void SaveSlot5() => SaveGame(5);
-    public void LoadSlot5() => LoadGame(5);
-
-    public void ClearSlot1() => ClearGame(1);
-    public void ClearSlot2() => ClearGame(2);
-    public void ClearSlot3() => ClearGame(3);
-    public void ClearSlot4() => ClearGame(4);
-    public void ClearSlot5() => ClearGame(5);
-
 }

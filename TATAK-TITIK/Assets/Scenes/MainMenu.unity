@@ -607,8 +607,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: ClearSlot2
         m_Mode: 1
         m_Arguments:
@@ -1821,8 +1821,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: ClearSlot3
         m_Mode: 1
         m_Arguments:
@@ -2356,8 +2356,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: LoadSlot5
         m_Mode: 1
         m_Arguments:
@@ -2489,8 +2489,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: ClearSlot5
         m_Mode: 1
         m_Arguments:
@@ -2622,8 +2622,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: ClearSlot1
         m_Mode: 1
         m_Arguments:
@@ -3057,8 +3057,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: LoadSlot2
         m_Mode: 1
         m_Arguments:
@@ -3107,6 +3107,70 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1116065202}
   m_CullTransparentMesh: 1
+--- !u!1 &1160249515
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1160249518}
+  - component: {fileID: 1160249517}
+  - component: {fileID: 1160249516}
+  m_Layer: 0
+  m_Name: Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1160249516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160249515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40fa56cba6224a541a9a66098a5ed474, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inventoryUI: {fileID: 0}
+  items: []
+  equippedItem: 
+  blankIcon: {fileID: 21300000, guid: 737f90148de71c34299f544f2eb31e2b, type: 3}
+--- !u!114 &1160249517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160249515}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cdb43392d7c65f49b4c1861ed6fc649, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerTransform: {fileID: 963194228}
+  currentSaveSlot: 1
+  itemDatabase: {fileID: 11400000, guid: ab7696ff9a978a24f829e87196a9c742, type: 2}
+--- !u!4 &1160249518
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1160249515}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 926.58026, y: 376.84573, z: -0.2427231}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1166832606
 GameObject:
   m_ObjectHideFlags: 0
@@ -5011,8 +5075,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1959595064}
-  - component: {fileID: 1959595063}
   - component: {fileID: 1959595065}
+  - component: {fileID: 1959595066}
   m_Layer: 0
   m_Name: SaveLoadManager
   m_TagString: Untagged
@@ -5020,20 +5084,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1959595063
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1959595062}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3cdb43392d7c65f49b4c1861ed6fc649, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  playerTransform: {fileID: 963194228}
-  currentSaveSlot: 1
 --- !u!4 &1959595064
 Transform:
   m_ObjectHideFlags: 0
@@ -5064,6 +5114,18 @@ MonoBehaviour:
   MenuPanel: {fileID: 498101388}
   SettingsPanel: {fileID: 979254516}
   SaveLoadPanel: {fileID: 1842525308}
+--- !u!114 &1959595066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1959595062}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 054f3885a63ab2a47abbff1d9950a7d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1974943542
 GameObject:
   m_ObjectHideFlags: 0
@@ -5147,8 +5209,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: LoadSlot3
         m_Mode: 1
         m_Arguments:
@@ -5280,8 +5342,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: LoadSlot4
         m_Mode: 1
         m_Arguments:
@@ -5413,8 +5475,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: LoadSlot1
         m_Mode: 1
         m_Arguments:
@@ -5748,8 +5810,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1959595063}
-        m_TargetAssemblyTypeName: SaveLoadManager, Assembly-CSharp
+      - m_Target: {fileID: 1959595066}
+        m_TargetAssemblyTypeName: HELPERSaveLoads, Assembly-CSharp
         m_MethodName: ClearSlot4
         m_Mode: 1
         m_Arguments:
@@ -5945,3 +6007,4 @@ SceneRoots:
   - {fileID: 1166832610}
   - {fileID: 1794522199}
   - {fileID: 1959595064}
+  - {fileID: 1160249518}
