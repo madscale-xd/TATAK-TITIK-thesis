@@ -21,6 +21,7 @@ public class SaveLoadManager : MonoBehaviour
 
     public static SaveLoadManager Instance;
     private HashSet<string> collectedPickupIDs = new HashSet<string>();
+    private HashSet<string> interactedObjectIDs = new HashSet<string>();
 
     private void Awake()
     {
@@ -88,6 +89,7 @@ public class SaveLoadManager : MonoBehaviour
             InventoryManager.Instance.equippedItem
         );
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
+        data.interactedObjectIDs = new List<string>(interactedObjectIDs); // ✅ Add this
 
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
@@ -112,6 +114,7 @@ public class SaveLoadManager : MonoBehaviour
             // Load inventory from saved data
             InventoryManager.Instance.LoadInventory(data.inventoryItems, data.equippedItem, itemDatabase);
             collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs);
+            interactedObjectIDs = new HashSet<string>(data.interactedObjectIDs); // ✅ Load it back
 
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
@@ -143,11 +146,12 @@ public class SaveLoadManager : MonoBehaviour
 
         // Clear collected pickup IDs
         collectedPickupIDs.Clear();
+        interactedObjectIDs.Clear(); // ✅ Clear interacted objects
 
         LoadGame(slot); // Reload scene
     }
 
-      
+
 
     private IEnumerator ResetInventoryDelayed()
     {
@@ -225,5 +229,15 @@ public class SaveLoadManager : MonoBehaviour
     public bool IsPickupCollected(string pickupID)
     {
         return collectedPickupIDs.Contains(pickupID);
+    }
+    
+    public void MarkObjectInteracted(string objectID)
+    {
+        interactedObjectIDs.Add(objectID);
+    }
+
+    public bool IsObjectInteracted(string objectID)
+    {
+        return interactedObjectIDs.Contains(objectID);
     }
 }
