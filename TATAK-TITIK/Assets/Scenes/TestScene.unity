@@ -505,6 +505,7 @@ GameObject:
   - component: {fileID: 80562326}
   - component: {fileID: 80562325}
   - component: {fileID: 80562327}
+  - component: {fileID: 80562328}
   m_Layer: 0
   m_Name: Manager
   m_TagString: Untagged
@@ -558,6 +559,22 @@ MonoBehaviour:
   items: []
   equippedItem: 
   blankIcon: {fileID: 21300000, guid: 737f90148de71c34299f544f2eb31e2b, type: 3}
+--- !u!114 &80562328
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80562324}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81f25bd7815b7e544afd044ff339b0e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SAVEPanel: {fileID: 1199856031}
+  JournalPanel: {fileID: 130258584}
+  InventoryPanel: {fileID: 1826812040}
+  EXITPanel: {fileID: 1472641107}
 --- !u!1 &130258584
 GameObject:
   m_ObjectHideFlags: 0
@@ -876,7 +893,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2113526350}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SceneButtonManager, Assembly-CSharp
         m_MethodName: ToggleJournalPanel
         m_Mode: 1
@@ -1321,7 +1338,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2113526350}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SceneButtonManager, Assembly-CSharp
         m_MethodName: ToggleSavePanel
         m_Mode: 1
@@ -3631,7 +3648,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2113526350}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SceneButtonManager, Assembly-CSharp
         m_MethodName: BackToExitFromSaveLoad
         m_Mode: 1
@@ -5948,7 +5965,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2113526350}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SceneButtonManager, Assembly-CSharp
         m_MethodName: GoToMainMenu
         m_Mode: 1
@@ -9767,7 +9784,6 @@ GameObject:
   - component: {fileID: 2113526346}
   - component: {fileID: 2113526345}
   - component: {fileID: 2113526348}
-  - component: {fileID: 2113526350}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -9866,22 +9882,6 @@ MonoBehaviour:
   smoothSpeed: 5
   pitchAngle: 50
   yawAngle: 45
---- !u!114 &2113526350
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2113526344}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 81f25bd7815b7e544afd044ff339b0e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  SAVEPanel: {fileID: 1199856031}
-  JournalPanel: {fileID: 130258584}
-  InventoryPanel: {fileID: 1826812040}
-  EXITPanel: {fileID: 1472641107}
 --- !u!1 &2114297067
 GameObject:
   m_ObjectHideFlags: 0
@@ -9965,7 +9965,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2113526350}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SceneButtonManager, Assembly-CSharp
         m_MethodName: ToggleExitPanel
         m_Mode: 1
