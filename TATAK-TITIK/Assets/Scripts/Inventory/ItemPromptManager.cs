@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class ItemPromptManager : MonoBehaviour
 {
@@ -13,6 +14,22 @@ public class ItemPromptManager : MonoBehaviour
 
     private Coroutine fadeCoroutine;
 
+    void Awake()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Immediately hide the prompt when a new scene is loaded
+        HidePrompt();
+    }
+    
     void Start()
     {
         SetCanvasGroup(promptGroup, 0, false);

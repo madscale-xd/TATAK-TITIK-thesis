@@ -36,8 +36,19 @@ public class AudioManager : MonoBehaviour
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
+    private IEnumerator StopAudioAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        bgmSource.Stop();
+        sfxSource.Stop();
+    }
+
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        // Start coroutine to stop all audio after 0.5 seconds
+        StartCoroutine(StopAudioAfterDelay(0.5f));
+
+        // Optional: still set BGM (this will restart if not stopped)
         if (scene.name == "MainMenu")
             PlayBGM(mainMenuBGM);
         else if (scene.name == "TestScene")

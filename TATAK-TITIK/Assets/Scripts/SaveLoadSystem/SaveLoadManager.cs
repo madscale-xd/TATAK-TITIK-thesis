@@ -81,12 +81,14 @@ public class SaveLoadManager : MonoBehaviour
         {
             inventoryData.Add(new InventoryItemData(item.itemName, item.quantity));
         }
+        string currentScene = SceneManager.GetActiveScene().name;
 
         SaveData data = new SaveData(
             playerTransform.position,
             JournalManager.Instance.GetEntries(),
             inventoryData,
-            InventoryManager.Instance.equippedItem
+            InventoryManager.Instance.equippedItem,
+            currentScene
         );
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
         data.interactedObjectIDs = new List<string>(interactedObjectIDs); // ✅ Add this
@@ -127,7 +129,15 @@ public class SaveLoadManager : MonoBehaviour
         }
 
         Time.timeScale = 1f;
-        SceneManager.LoadScene("TestScene", LoadSceneMode.Single);
+        if (!string.IsNullOrEmpty(data.savedSceneName))
+        {
+            SceneManager.LoadScene(data.savedSceneName, LoadSceneMode.Single);
+        }
+        else
+        {
+            Debug.LogWarning("No scene name found in save data. Defaulting to TestScene.");
+            SceneManager.LoadScene("TestScene", LoadSceneMode.Single);
+        }
     }
 
 

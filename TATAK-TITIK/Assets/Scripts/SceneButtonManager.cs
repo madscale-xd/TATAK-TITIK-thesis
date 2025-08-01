@@ -12,13 +12,53 @@ public class SceneButtonManager : MonoBehaviour
     private bool escKeyEnabled = true;
     private bool eKeyEnabled = true;
 
-    public void GoToMainMenu()
+    private bool isMainMenuScene = false;
+
+    private void Awake()
     {
-        SceneManager.LoadScene("MainMenu"); // Replace with your actual main menu scene name
+        DontDestroyOnLoad(gameObject); // persists between scenes
+
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
-    public void ToggleExitPanel()           // RESUME / PAUSE GAME
+    private void OnDestroy()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        isMainMenuScene = scene.name == "MainMenu";
+
+        DeactivateIfValid(SAVEPanel);
+        DeactivateIfValid(JournalPanel);
+        DeactivateIfValid(EXITPanel);
+
+        if (isMainMenuScene)
+        {
+            DeactivateIfValid(InventoryPanel);
+        }
+        else
+        {
+            ActivateIfValid(InventoryPanel);
+        }
+
+        EnableJKey();
+        EnableEscKey();
+        EnableEKey();
+    }
+
+
+    public void GoToMainMenu()
+    {
+        SceneManager.LoadScene("MainMenu");
+    }
+
+    public void ToggleExitPanel()
+    {
+        if (isMainMenuScene) return;
+
         bool isNowActive = !EXITPanel.activeSelf;
         EXITPanel.SetActive(isNowActive);
         DisableJKey();
@@ -37,8 +77,10 @@ public class SceneButtonManager : MonoBehaviour
         }
     }
 
-    public void ToggleSavePanel()           //PAUSE to SAVELOAD
+    public void ToggleSavePanel()
     {
+        if (isMainMenuScene) return;
+
         ToggleIfValid(SAVEPanel);
         ToggleIfValid(EXITPanel);
         DeactivateIfValid(InventoryPanel);
@@ -46,8 +88,10 @@ public class SceneButtonManager : MonoBehaviour
         DisableJKey();
     }
 
-    public void ToggleJournalPanel()        //PAUSE to JOURNAL
+    public void ToggleJournalPanel()
     {
+        if (isMainMenuScene) return;
+
         ToggleIfValid(JournalPanel);
         ToggleIfValid(EXITPanel);
         DeactivateIfValid(InventoryPanel);
@@ -56,14 +100,15 @@ public class SceneButtonManager : MonoBehaviour
         DisableEKey();
     }
 
-    public void ToggleJournalPanelJ() // JOURNAL to RESUME / PAUSE
+    public void ToggleJournalPanelJ()
     {
+        if (isMainMenuScene) return;
+
         bool isNowActive = !JournalPanel.activeSelf;
         JournalPanel.SetActive(isNowActive);
 
         if (isNowActive)
         {
-            // Pausing game
             Time.timeScale = 0f;
             DeactivateIfValid(InventoryPanel);
             DisableEscKey();
@@ -71,7 +116,6 @@ public class SceneButtonManager : MonoBehaviour
         }
         else
         {
-            // Resuming game
             Time.timeScale = 1f;
             ToggleIfValid(InventoryPanel);
             EnableJKey();
@@ -82,83 +126,48 @@ public class SceneButtonManager : MonoBehaviour
 
     public void ToggleInventoryPanel()
     {
+        if (isMainMenuScene) return;
+
         ToggleIfValid(InventoryPanel);
         ToggleIfValid(EXITPanel);
     }
 
-    public void BackToExitFromSaveLoad()    //SAVELOAD to PAUSE
+    public void BackToExitFromSaveLoad()
     {
+        if (isMainMenuScene) return;
+
         ToggleIfValid(EXITPanel);
         ToggleIfValid(SAVEPanel);
         EnableEscKey();
         EnableEKey();
     }
 
-    // New methods to enable/disable J key
-    public void DisableJKey()
-    {
-        jKeyEnabled = false;
-    }
+    // Key toggles
+    public void DisableJKey() => jKeyEnabled = false;
+    public void EnableJKey() => jKeyEnabled = true;
+    public void DisableEscKey() => escKeyEnabled = false;
+    public void EnableEscKey() => escKeyEnabled = true;
+    public void DisableEKey() => eKeyEnabled = false;
+    public void EnableEKey() => eKeyEnabled = true;
 
-    public void EnableJKey()
-    {
-        jKeyEnabled = true;
-    }
-
-    // New methods to enable/disable ESC key
-    public void DisableEscKey()
-    {
-        escKeyEnabled = false;
-    }
-
-    public void EnableEscKey()
-    {
-        escKeyEnabled = true;
-    }
-
-    public void DisableEKey()
-    {
-        eKeyEnabled = false;
-    }
-
-    public void EnableEKey()
-    {
-        eKeyEnabled = true;
-    }
-
-    // Call this method from your input check/update method to test if key is allowed
-    public bool IsJKeyEnabled()
-    {
-        return jKeyEnabled;
-    }
-
-    public bool IsEscKeyEnabled()
-    {
-        return escKeyEnabled;
-    }
-
-    public bool IsEKeyEnabled()
-    {
-        return eKeyEnabled;
-    }
+    public bool IsJKeyEnabled() => jKeyEnabled;
+    public bool IsEscKeyEnabled() => escKeyEnabled;
+    public bool IsEKeyEnabled() => eKeyEnabled;
 
     private void ToggleIfValid(GameObject panel)
     {
         if (panel != null)
-        {
             panel.SetActive(!panel.activeSelf);
-        }
-        else
-        {
-            Debug.LogWarning("Panel reference is missing in the inspector.");
-        }
     }
 
     private void DeactivateIfValid(GameObject panel)
     {
         if (panel != null && panel.activeSelf)
-        {
             panel.SetActive(false);
-        }
+    }
+    private void ActivateIfValid(GameObject panel)
+    {
+        if (panel != null && !panel.activeSelf)
+            panel.SetActive(true);
     }
 }
