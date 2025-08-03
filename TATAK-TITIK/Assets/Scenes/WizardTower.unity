@@ -774,7 +774,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dialogueLines:
-  - ONLY LINE
+  - Hi
+  - ASDASDASD
 --- !u!114 &189318077
 MonoBehaviour:
   m_ObjectHideFlags: 0

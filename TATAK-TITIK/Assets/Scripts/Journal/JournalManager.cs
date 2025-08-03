@@ -15,7 +15,7 @@ public class JournalManager : MonoBehaviour
     private List<JournalEntry> entries = new List<JournalEntry>();
     private List<GameObject> pages = new List<GameObject>();
 
-    private int maxEntriesPerPage = 3;
+    private int maxEntriesPerPage = 4;
     private int currentPageIndex = 0;
 
     private void Awake()
@@ -60,6 +60,9 @@ public class JournalManager : MonoBehaviour
     /// </summary>
     private void RefreshJournalUI()
     {
+        // Reset page index to 0 so we always start at the first page
+        currentPageIndex = 0;
+
         // Destroy existing pages UI
         foreach (var page in pages)
             Destroy(page);
@@ -70,39 +73,34 @@ public class JournalManager : MonoBehaviour
 
         for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
         {
-            // Instantiate new page and parent it
             GameObject page = Instantiate(pagePrefab, pagesParent);
+            page.SetActive(false); // Initially deactivate all pages
             pages.Add(page);
 
-            // Add entry slots to this page
             for (int i = 0; i < maxEntriesPerPage; i++)
             {
                 int entryIndex = pageIndex * maxEntriesPerPage + i;
                 if (entryIndex >= entries.Count) break;
 
-                // Instantiate entry slot prefab as child of this page
                 GameObject slotGO = Instantiate(entrySlotPrefab, page.transform);
-
-                // Find UI components inside slot prefab
                 TMP_Text label = slotGO.transform.Find("Label").GetComponent<TMP_Text>();
                 TMP_InputField inputField = slotGO.transform.Find("InputField").GetComponent<TMP_InputField>();
 
-                // Setup UI with entry data
                 label.text = entries[entryIndex].displayWord;
                 inputField.text = entries[entryIndex].playerNote;
                 inputField.interactable = true;
                 inputField.placeholder.GetComponent<TMP_Text>().text = "?";
 
-                // Optional: Add listener to update playerNote when input changes
                 int capturedIndex = entryIndex;
                 inputField.onValueChanged.AddListener((string val) =>
                 {
                     entries[capturedIndex].playerNote = val;
                 });
             }
-
-            // Set active only current page
-            page.SetActive(pageIndex == currentPageIndex);
+        }
+        for (int i = 0; i < pages.Count; i++)
+        {
+            pages[i].SetActive(i == currentPageIndex || i == currentPageIndex + 1);
         }
     }
 
@@ -111,24 +109,19 @@ public class JournalManager : MonoBehaviour
     /// </summary>
     public void NextPage()
     {
-        if (currentPageIndex < pages.Count - 1)
+        if (currentPageIndex + 2 < pages.Count)
         {
-            pages[currentPageIndex].SetActive(false);
-            currentPageIndex++;
-            pages[currentPageIndex].SetActive(true);
+            currentPageIndex += 2;
+            RefreshJournalUI();
         }
     }
 
-    /// <summary>
-    /// Shows the previous page if possible.
-    /// </summary>
     public void PreviousPage()
     {
-        if (currentPageIndex > 0)
+        if (currentPageIndex - 2 >= 0)
         {
-            pages[currentPageIndex].SetActive(false);
-            currentPageIndex--;
-            pages[currentPageIndex].SetActive(true);
+            currentPageIndex -= 2;
+            RefreshJournalUI();
         }
     }
 

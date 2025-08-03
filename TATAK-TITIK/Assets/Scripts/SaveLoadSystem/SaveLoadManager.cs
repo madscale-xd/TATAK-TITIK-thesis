@@ -197,6 +197,22 @@ public class SaveLoadManager : MonoBehaviour
         {
             StartCoroutine(SetPlayerPositionNextFrame());
         }
+
+        // 🧠 Restore journal entries after scene load
+        if (pendingJournalEntries != null && pendingJournalEntries.Count > 0)
+        {
+            if (JournalManager.Instance != null)
+            {
+                JournalManager.Instance.LoadEntries(pendingJournalEntries);
+                Debug.Log("[SaveLoadManager] Journal entries restored.");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] JournalManager not found.");
+            }
+
+            pendingJournalEntries = null;
+        }
     }
 
     private IEnumerator SetPlayerPositionNextFrame()

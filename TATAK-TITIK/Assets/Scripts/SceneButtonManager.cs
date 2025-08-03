@@ -5,6 +5,8 @@ public class SceneButtonManager : MonoBehaviour
 {
     public GameObject SAVEPanel;
     public GameObject JournalPanel;
+    public GameObject JournalPrev;
+    public GameObject JournalNext;
     public GameObject InventoryPanel;
     public GameObject EXITPanel;
 
@@ -98,6 +100,11 @@ public class SceneButtonManager : MonoBehaviour
         DisableEscKey();
         EnableJKey();
         DisableEKey();
+
+        // Handle Journal Navigation Buttons
+        bool isNowActive = JournalPanel.activeSelf;
+        if (JournalPrev != null) JournalPrev.SetActive(isNowActive);
+        if (JournalNext != null) JournalNext.SetActive(isNowActive);
     }
 
     public void ToggleJournalPanelJ()
@@ -106,6 +113,10 @@ public class SceneButtonManager : MonoBehaviour
 
         bool isNowActive = !JournalPanel.activeSelf;
         JournalPanel.SetActive(isNowActive);
+
+        // Handle Journal Navigation Buttons
+        if (JournalPrev != null) JournalPrev.SetActive(isNowActive);
+        if (JournalNext != null) JournalNext.SetActive(isNowActive);
 
         if (isNowActive)
         {
