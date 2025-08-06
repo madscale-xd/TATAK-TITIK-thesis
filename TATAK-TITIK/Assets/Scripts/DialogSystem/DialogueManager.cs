@@ -245,4 +245,28 @@ public class DialogueManager : MonoBehaviour
             group.gameObject.SetActive(alpha > 0f);
         }
     }
+
+    public void ForceHidePrompt()
+    {
+        StopAllCoroutines(); // stop fading if in progress
+        SetCanvasGroup(pressEPromptGroup, 0f, false);
+    }
+
+    public bool HasCurrentNPC()
+    {
+        return currentNPC != null;
+    }
+
+    public bool IsPromptVisible()
+    {
+        return pressEPromptGroup.alpha > 0f;
+    }
+
+    public void RefreshPromptIfNeeded()
+    {
+        if (currentNPC != null && !IsPromptVisible())
+        {
+            StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
+        }
+    }
 }

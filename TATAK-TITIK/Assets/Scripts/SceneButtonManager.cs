@@ -9,6 +9,7 @@ public class SceneButtonManager : MonoBehaviour
     public GameObject JournalNext;
     public GameObject InventoryPanel;
     public GameObject EXITPanel;
+    [SerializeField] private DialogueManager dialogueManager;
 
     private bool jKeyEnabled = true;
     private bool escKeyEnabled = true;
@@ -61,6 +62,7 @@ public class SceneButtonManager : MonoBehaviour
     {
         if (isMainMenuScene) return;
 
+        dialogueManager.ForceHidePrompt();
         bool isNowActive = !EXITPanel.activeSelf;
         EXITPanel.SetActive(isNowActive);
         DisableJKey();
@@ -72,6 +74,7 @@ public class SceneButtonManager : MonoBehaviour
 
         if (Time.timeScale == 1f)
         {
+            dialogueManager.RefreshPromptIfNeeded();
             ToggleIfValid(InventoryPanel);
             EnableJKey();
             EnableEscKey();
@@ -86,7 +89,6 @@ public class SceneButtonManager : MonoBehaviour
         ToggleIfValid(SAVEPanel);
         ToggleIfValid(EXITPanel);
         DeactivateIfValid(InventoryPanel);
-        DisableEscKey();
         DisableJKey();
     }
 
@@ -94,10 +96,10 @@ public class SceneButtonManager : MonoBehaviour
     {
         if (isMainMenuScene) return;
 
+        dialogueManager.ForceHidePrompt();
         ToggleIfValid(JournalPanel);
         ToggleIfValid(EXITPanel);
         DeactivateIfValid(InventoryPanel);
-        DisableEscKey();
         EnableJKey();
         DisableEKey();
 
@@ -120,13 +122,14 @@ public class SceneButtonManager : MonoBehaviour
 
         if (isNowActive)
         {
+            dialogueManager.ForceHidePrompt();
             Time.timeScale = 0f;
             DeactivateIfValid(InventoryPanel);
-            DisableEscKey();
             DisableEKey();
         }
         else
         {
+            dialogueManager.RefreshPromptIfNeeded();
             Time.timeScale = 1f;
             ToggleIfValid(InventoryPanel);
             EnableJKey();
