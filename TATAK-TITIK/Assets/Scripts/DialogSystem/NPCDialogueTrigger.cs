@@ -5,7 +5,6 @@ public class NPCDialogueTrigger : MonoBehaviour
     [TextArea(2, 5)]
     public string[] dialogueLines;
     private DialogueManager dialogueManager;
-
     private PlayerInteraction playerInteraction;
 
     private void Start()
@@ -33,7 +32,7 @@ public class NPCDialogueTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             dialogueManager.HidePromptFor(this);
-            playerInteraction.ClearCurrentNPC();
+            playerInteraction.ClearCurrentNPC(this);
         }
     }
 

@@ -28,8 +28,12 @@ public class PlayerInteraction : MonoBehaviour
     }
 
     // Called by NPCDialogueTrigger when player leaves trigger
-    public void ClearCurrentNPC()
+    public void ClearCurrentNPC(NPCDialogueTrigger npc)
     {
-        currentNPC = null;
+        // Only clear if the exiting NPC is the current one
+        if (currentNPC == npc)
+        {
+            currentNPC = null;
+        }
     }
 }

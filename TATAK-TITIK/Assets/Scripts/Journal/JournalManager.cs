@@ -60,27 +60,34 @@ public class JournalManager : MonoBehaviour
     /// </summary>
     private void RefreshJournalUI()
     {
-        // Reset page index to 0 so we always start at the first page
-        currentPageIndex = 0;
+        // Calculate how many *pairs* of pages are needed
+        int totalPagePairs = Mathf.CeilToInt(entries.Count / (float)(maxEntriesPerPage * 2));
+        int totalPages = totalPagePairs * 2; // Always even
 
-        // Destroy existing pages UI
+        // Clamp currentPageIndex to valid range
+        currentPageIndex = Mathf.Clamp(currentPageIndex, 0, Mathf.Max(0, totalPages - 2));
+
+        // Clear old pages
         foreach (var page in pages)
             Destroy(page);
         pages.Clear();
 
-        // Calculate total pages needed
-        int totalPages = Mathf.CeilToInt(entries.Count / (float)maxEntriesPerPage);
-
+        // Rebuild pages
         for (int pageIndex = 0; pageIndex < totalPages; pageIndex++)
         {
             GameObject page = Instantiate(pagePrefab, pagesParent);
-            page.SetActive(false); // Initially deactivate all pages
+            page.SetActive(false);
             pages.Add(page);
+
+            JournalPage jp = page.GetComponent<JournalPage>();
+            bool hasEntriesThisPage = false;
 
             for (int i = 0; i < maxEntriesPerPage; i++)
             {
                 int entryIndex = pageIndex * maxEntriesPerPage + i;
                 if (entryIndex >= entries.Count) break;
+
+                hasEntriesThisPage = true;
 
                 GameObject slotGO = Instantiate(entrySlotPrefab, page.transform);
                 TMP_Text label = slotGO.transform.Find("Label").GetComponent<TMP_Text>();
@@ -97,12 +104,21 @@ public class JournalManager : MonoBehaviour
                     entries[capturedIndex].playerNote = val;
                 });
             }
+
+            if (hasEntriesThisPage && jp != null)
+            {
+                jp.DisablePlaceholderIfNeeded();
+            }
         }
+
+        // Enable only the two visible pages
         for (int i = 0; i < pages.Count; i++)
         {
-            pages[i].SetActive(i == currentPageIndex || i == currentPageIndex + 1);
+            bool shouldBeActive = (i == currentPageIndex || i == currentPageIndex + 1);
+            pages[i].SetActive(shouldBeActive);
         }
     }
+
 
     /// <summary>
     /// Shows the next page if possible.
@@ -124,6 +140,7 @@ public class JournalManager : MonoBehaviour
             RefreshJournalUI();
         }
     }
+
 
     public List<JournalEntry> GetEntries()
     {
