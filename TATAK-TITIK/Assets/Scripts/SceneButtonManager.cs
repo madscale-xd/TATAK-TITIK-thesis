@@ -5,31 +5,38 @@ public class SceneButtonManager : MonoBehaviour
 {
     public GameObject SAVEPanel;
     public GameObject JournalPanel;
+    public GameObject JournalButton;
     public GameObject JournalPrev;
     public GameObject JournalNext;
     public GameObject InventoryPanel;
     public GameObject EXITPanel;
     [SerializeField] private DialogueManager dialogueManager;
-
     private bool jKeyEnabled = true;
     private bool escKeyEnabled = true;
     private bool eKeyEnabled = true;
-
     private bool isMainMenuScene = false;
 
     private void Awake()
     {
-        DontDestroyOnLoad(gameObject); // persists between scenes
-
+        DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded += OnSceneLoaded;
-        OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
+        // Subscribe if the JournalAvailability instance already exists
+        if (JournalAvailability.Instance != null)
+            JournalAvailability.Instance.OnAvailabilityChanged += OnJournalAvailabilityChanged;
     }
 
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (JournalAvailability.Instance != null)
+            JournalAvailability.Instance.OnAvailabilityChanged -= OnJournalAvailabilityChanged;
     }
 
+    private void OnJournalAvailabilityChanged(bool available)
+    {
+        if (JournalButton != null)
+            JournalButton.SetActive(available);
+    }
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         isMainMenuScene = scene.name == "MainMenu";
@@ -64,8 +71,16 @@ public class SceneButtonManager : MonoBehaviour
 
         dialogueManager.ForceHidePrompt();
         bool isNowActive = !EXITPanel.activeSelf;
+
         EXITPanel.SetActive(isNowActive);
-        DisableJKey();
+
+        // Set journal button per availability every time exit is shown/hidden
+        if (JournalButton != null)
+        {
+            bool shouldShow = JournalAvailability.Instance != null && JournalAvailability.Instance.IsAvailable();
+            JournalButton.SetActive(shouldShow);
+        }
+        
         DisableEKey();
 
         DeactivateIfValid(InventoryPanel);
@@ -82,6 +97,7 @@ public class SceneButtonManager : MonoBehaviour
         }
     }
 
+
     public void ToggleSavePanel()
     {
         if (isMainMenuScene) return;
@@ -94,6 +110,12 @@ public class SceneButtonManager : MonoBehaviour
 
     public void ToggleJournalPanel()
     {
+        if (JournalAvailability.Instance != null && !JournalAvailability.Instance.IsAvailable())
+        {
+            Debug.Log("Journal is not available yet.");
+            return;
+        }
+
         if (isMainMenuScene) return;
 
         dialogueManager.ForceHidePrompt();
@@ -111,6 +133,12 @@ public class SceneButtonManager : MonoBehaviour
 
     public void ToggleJournalPanelJ()
     {
+        if (JournalAvailability.Instance != null && !JournalAvailability.Instance.IsAvailable())
+        {
+            Debug.Log("Journal is not available yet.");
+            return;
+        }
+        
         if (isMainMenuScene) return;
 
         bool isNowActive = !JournalPanel.activeSelf;

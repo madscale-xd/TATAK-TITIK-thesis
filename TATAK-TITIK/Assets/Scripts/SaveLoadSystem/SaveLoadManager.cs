@@ -22,6 +22,7 @@ public class SaveLoadManager : MonoBehaviour
     public static SaveLoadManager Instance;
     private HashSet<string> collectedPickupIDs = new HashSet<string>();
     private HashSet<string> interactedObjectIDs = new HashSet<string>();
+    private bool? pendingJournalAvailable = null;
 
     private void Awake()
     {
@@ -83,12 +84,17 @@ public class SaveLoadManager : MonoBehaviour
         }
         string currentScene = SceneManager.GetActiveScene().name;
 
+        bool journalAvailable = false;
+        if (JournalAvailability.Instance != null)
+        journalAvailable = JournalAvailability.Instance.IsAvailable();
+
         SaveData data = new SaveData(
             playerTransform.position,
             JournalManager.Instance.GetEntries(),
             inventoryData,
             InventoryManager.Instance.equippedItem,
-            currentScene
+            currentScene,
+            journalAvailable
         );
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
         data.interactedObjectIDs = new List<string>(interactedObjectIDs); // ✅ Add this
@@ -118,25 +124,29 @@ public class SaveLoadManager : MonoBehaviour
             collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs);
             interactedObjectIDs = new HashSet<string>(data.interactedObjectIDs); // ✅ Load it back
 
+            pendingJournalAvailable = data.journalAvailable;
+
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
         else
         {
             Debug.LogWarning($"No save file found in slot {slot}. Starting fresh.");
             shouldApplyPosition = false; // Ensure nothing is applied
-
-            // Don't clear inventory here! Clear in ClearGame instead.
+            pendingJournalAvailable = false;
         }
 
         Time.timeScale = 1f;
-        if (!string.IsNullOrEmpty(data.savedSceneName))
+        // safe load: only reference data if not null
+        if (data != null && !string.IsNullOrEmpty(data.savedSceneName))
         {
             SceneManager.LoadScene(data.savedSceneName, LoadSceneMode.Single);
         }
         else
         {
-            Debug.LogWarning("No scene name found in save data. Defaulting to TestScene.");
-            SceneManager.LoadScene("TestScene", LoadSceneMode.Single);
+            // <-- Change this string to pick the default scene after clearing / missing save
+            string defaultScene = "WizardTower"; 
+            Debug.LogWarning($"No scene name found in save data. Defaulting to {defaultScene}.");
+            SceneManager.LoadScene(defaultScene, LoadSceneMode.Single);
         }
     }
 
@@ -157,6 +167,10 @@ public class SaveLoadManager : MonoBehaviour
         // Clear collected pickup IDs
         collectedPickupIDs.Clear();
         interactedObjectIDs.Clear(); // ✅ Clear interacted objects
+
+        pendingJournalAvailable = false;
+        if (JournalAvailability.Instance != null)
+            JournalAvailability.Instance.DisableJournal();
 
         LoadGame(slot); // Reload scene
     }
@@ -212,6 +226,21 @@ public class SaveLoadManager : MonoBehaviour
             }
 
             pendingJournalEntries = null;
+        }
+
+        if (pendingJournalAvailable.HasValue)
+        {
+            if (JournalAvailability.Instance != null)
+            {
+                JournalAvailability.Instance.SetAvailable(pendingJournalAvailable.Value);
+                Debug.Log($"[SaveLoadManager] Applied journal availability = {pendingJournalAvailable.Value}");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] JournalAvailability instance not present to apply saved availability.");
+            }
+
+            pendingJournalAvailable = null;
         }
     }
 

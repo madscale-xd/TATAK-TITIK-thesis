@@ -615,10 +615,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SAVEPanel: {fileID: 1629561543}
   JournalPanel: {fileID: 915350557}
+  JournalButton: {fileID: 570587140}
   JournalPrev: {fileID: 2092417664}
   JournalNext: {fileID: 203186023}
   InventoryPanel: {fileID: 1829782103}
   EXITPanel: {fileID: 1120555316}
+  dialogueManager: {fileID: 692673732}
 --- !u!114 &156282308
 MonoBehaviour:
   m_ObjectHideFlags: 0
