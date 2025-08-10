@@ -1,21 +1,46 @@
+// NPCDialogueTrigger.cs (add/modify)
 using UnityEngine;
+using System.Collections.Generic;
+using System.Linq;
 
 public class NPCDialogueTrigger : MonoBehaviour
 {
+    [Header("Identification (must be unique per NPC)")]
+    public string npcID;                 // e.g. "Wizard", "Guard_01"
+
     [TextArea(2, 5)]
     public string[] dialogueLines;
     private DialogueManager dialogueManager;
     private PlayerInteraction playerInteraction;
 
-    private void Start()
+    // simple registry for quick lookups
+    private static readonly Dictionary<string, NPCDialogueTrigger> registry = new Dictionary<string, NPCDialogueTrigger>();
+
+    private void Awake()
     {
         dialogueManager = FindObjectOfType<DialogueManager>();
         playerInteraction = FindObjectOfType<PlayerInteraction>();
+    }
 
-        if (dialogueManager == null)
-            Debug.LogError("DialogueManager not found in scene!");
-        if (playerInteraction == null)
-            Debug.LogError("PlayerInteraction not found in scene!");
+    private void OnEnable()
+    {
+        if (!string.IsNullOrWhiteSpace(npcID))
+        {
+            // overwrite if duplicate; you may want to warn instead
+            registry[npcID] = this;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (!string.IsNullOrWhiteSpace(npcID) && registry.TryGetValue(npcID, out var existing) && existing == this)
+            registry.Remove(npcID);
+    }
+
+    private void Start()
+    {
+        if (dialogueManager == null) Debug.LogError("DialogueManager not found in scene!");
+        if (playerInteraction == null) Debug.LogError("PlayerInteraction not found in scene!");
     }
 
     private void OnTriggerEnter(Collider other)
@@ -36,8 +61,25 @@ public class NPCDialogueTrigger : MonoBehaviour
         }
     }
 
-    public string[] GetDialogueLines()
+    public string[] GetDialogueLines() => dialogueLines;
+
+    // Public mutator method to change dialogue safely at runtime
+    public void SetDialogueLines(string[] newLines)
     {
-        return dialogueLines;
+        dialogueLines = newLines;
+
+        // If this NPC is currently showing a prompt/dialogue, hide it so UI can update cleanly
+        if (dialogueManager != null)
+        {
+            dialogueManager.HidePromptFor(this); // HidePromptFor already checks equality internally
+        }
+    }
+
+    // Static lookup helper
+    public static NPCDialogueTrigger GetByID(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+        registry.TryGetValue(id, out var trigger);
+        return trigger;
     }
 }

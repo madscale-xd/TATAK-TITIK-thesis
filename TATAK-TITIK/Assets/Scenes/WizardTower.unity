@@ -774,7 +774,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dialogueLines:
-  - Hi
+  - Lingo, my apprentice.
+  - You came!
+  - 
+  - ASDASDASD
+  - ASDASDASD
+  - ASDASDASD
   - ASDASDASD
 --- !u!114 &189318077
 MonoBehaviour:

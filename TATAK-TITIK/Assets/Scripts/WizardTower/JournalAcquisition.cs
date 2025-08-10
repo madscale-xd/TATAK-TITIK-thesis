@@ -64,6 +64,18 @@ public class JournalAcquisition : MonoBehaviour
         var slm = SaveLoadManager.Instance;
         if (slm != null)
         {
+            GameObject wizardGO = GameObject.Find("Wizard"); // set this to your wizard GameObject's name
+            if (wizardGO != null)
+            {
+                var npc = wizardGO.GetComponent<NPCDialogueTrigger>();
+                if (npc != null)
+                {
+                    npc.SetDialogueLines(new string[] {
+                        "New line",
+                        "More wizardy stuff..."
+                    });
+                }
+            }
             // If currentSaveSlot is not valid (<= 0), assign slot 1
             if (slm.currentSaveSlot <= 0)
             {
