@@ -14,6 +14,10 @@ public class DialogueManager : MonoBehaviour
     public float fadeDuration = 0.2f;
     public float typeDelay = 0.03f;
 
+    [Header("Event Managers (optional)")]
+    [Tooltip("Assign the DialogueEventsManager in the scene here. If left empty, the script will use DialogueEventsManager.Instance if available.")]
+    public DialogueEventsManager dialogueEventsManager;
+
     private Coroutine typewriterCoroutine;
     private bool isFading = false;
     private bool dialogueVisible = false;
@@ -29,6 +33,10 @@ public class DialogueManager : MonoBehaviour
     {
         SetCanvasGroup(pressEPromptGroup, 0, false);
         SetCanvasGroup(dialoguePanelGroup, 0, false);
+
+        // fallback to singleton if inspector reference wasn't set
+        if (dialogueEventsManager == null && DialogueEventsManager.Instance != null)
+            dialogueEventsManager = DialogueEventsManager.Instance;
     }
 
     void Update()
@@ -36,7 +44,7 @@ public class DialogueManager : MonoBehaviour
         SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
         if (currentNPC == null)
         {
-            if (dialogueVisible || pressEPromptGroup.alpha > 0)
+            if (dialogueVisible || (pressEPromptGroup != null && pressEPromptGroup.alpha > 0))
                 StartCoroutine(CloseDialogueAndPrompt());
             return;
         }
@@ -118,12 +126,19 @@ public class DialogueManager : MonoBehaviour
 
     private void StartDialogue(string[] dialogueLines)
     {
-        if (isFading || dialogueLines.Length == 0) return;
+        if (isFading || dialogueLines == null || dialogueLines.Length == 0) return;
 
         currentDialogueLines = dialogueLines;
         currentLineIndex = 0;
         dialogueVisible = true;
         currentDialogue = currentDialogueLines[currentLineIndex];
+
+        // Mark in DialogueEventsManager that this NPC/gameobject was triggered (player explicitly began the dialogue).
+        if (currentNPC != null)
+        {
+            dialogueEventsManager?.AddToTriggeredList(currentNPC.gameObject.name);
+        }
+
         StartCoroutine(TransitionToDialogue());
     }
 
@@ -154,6 +169,12 @@ public class DialogueManager : MonoBehaviour
         dialogueText.text = "";
 
         yield return FadeCanvasGroup(dialoguePanelGroup, 0, false);
+
+        // Dialogue panel has closed — consider this the "finished" moment and also mark DEM (safe duplicate)
+        if (currentNPC != null)
+        {
+            dialogueEventsManager?.AddToTriggeredList(currentNPC.gameObject.name);
+        }
 
         isFading = false;
     }
@@ -259,7 +280,7 @@ public class DialogueManager : MonoBehaviour
 
     public bool IsPromptVisible()
     {
-        return pressEPromptGroup.alpha > 0f;
+        return pressEPromptGroup != null && pressEPromptGroup.alpha > 0f;
     }
 
     public void RefreshPromptIfNeeded()

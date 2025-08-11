@@ -1,4 +1,3 @@
-// NPCDialogueTrigger.cs (add/modify)
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,6 +48,8 @@ public class NPCDialogueTrigger : MonoBehaviour
         {
             dialogueManager.ShowPromptFor(this);
             playerInteraction.SetCurrentNPC(this);
+
+            // NOTE: Removed calls to DialogueEventsManager here so entering range no longer marks the dialogue as triggered.
         }
     }
 
@@ -81,5 +82,30 @@ public class NPCDialogueTrigger : MonoBehaviour
         if (string.IsNullOrWhiteSpace(id)) return null;
         registry.TryGetValue(id, out var trigger);
         return trigger;
+    }
+
+    public static IReadOnlyDictionary<string, NPCDialogueTrigger> GetAllRegistered()
+    {
+        return registry;
+    }
+
+    // getter for id
+    public string GetNPCID() => npcID;
+
+    // setter to change id at runtime (updates registry)
+    public void SetNPCID(string newID)
+    {
+        // remove old
+        if (!string.IsNullOrWhiteSpace(npcID) && registry.ContainsKey(npcID) && registry[npcID] == this)
+        {
+            registry.Remove(npcID);
+        }
+
+        npcID = newID ?? "";
+
+        if (!string.IsNullOrWhiteSpace(npcID))
+        {
+            registry[npcID] = this;
+        }
     }
 }

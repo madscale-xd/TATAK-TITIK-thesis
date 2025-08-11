@@ -24,6 +24,9 @@ public class SaveLoadManager : MonoBehaviour
     private HashSet<string> interactedObjectIDs = new HashSet<string>();
     private bool? pendingJournalAvailable = null;
 
+    // NEW: pending triggered dialogue IDs to apply after scene load
+    private List<string> pendingTriggeredDialogueIDs = null;
+
     private void Awake()
     {
         if (Instance == null)
@@ -86,8 +89,9 @@ public class SaveLoadManager : MonoBehaviour
 
         bool journalAvailable = false;
         if (JournalAvailability.Instance != null)
-        journalAvailable = JournalAvailability.Instance.IsAvailable();
+            journalAvailable = JournalAvailability.Instance.IsAvailable();
 
+        // Create SaveData (constructor includes journalAvailable param)
         SaveData data = new SaveData(
             playerTransform.position,
             JournalManager.Instance.GetEntries(),
@@ -96,8 +100,21 @@ public class SaveLoadManager : MonoBehaviour
             currentScene,
             journalAvailable
         );
+
+        // persist pickup/interacted sets
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
-        data.interactedObjectIDs = new List<string>(interactedObjectIDs); // ✅ Add this
+        data.interactedObjectIDs = new List<string>(interactedObjectIDs);
+
+        // NEW: add triggered-dialogue IDs from DialogueEventsManager (if present)
+        if (DialogueEventsManager.Instance != null)
+        {
+            var triggeredList = DialogueEventsManager.Instance.GetTriggeredListForSave();
+            data.triggeredDialogueIDs = triggeredList ?? new List<string>();
+        }
+        else
+        {
+            data.triggeredDialogueIDs = new List<string>();
+        }
 
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
@@ -124,7 +141,11 @@ public class SaveLoadManager : MonoBehaviour
             collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs);
             interactedObjectIDs = new HashSet<string>(data.interactedObjectIDs); // ✅ Load it back
 
+            // NEW: restore pending journal availability
             pendingJournalAvailable = data.journalAvailable;
+
+            // NEW: store triggered dialogue IDs to apply on next scene load
+            pendingTriggeredDialogueIDs = data.triggeredDialogueIDs != null ? new List<string>(data.triggeredDialogueIDs) : new List<string>();
 
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
@@ -132,7 +153,10 @@ public class SaveLoadManager : MonoBehaviour
         {
             Debug.LogWarning($"No save file found in slot {slot}. Starting fresh.");
             shouldApplyPosition = false; // Ensure nothing is applied
+
+            // set defaults
             pendingJournalAvailable = false;
+            pendingTriggeredDialogueIDs = new List<string>(); // empty = none triggered
         }
 
         Time.timeScale = 1f;
@@ -144,7 +168,7 @@ public class SaveLoadManager : MonoBehaviour
         else
         {
             // <-- Change this string to pick the default scene after clearing / missing save
-            string defaultScene = "WizardTower"; 
+            string defaultScene = "WizardTower";
             Debug.LogWarning($"No scene name found in save data. Defaulting to {defaultScene}.");
             SceneManager.LoadScene(defaultScene, LoadSceneMode.Single);
         }
@@ -168,9 +192,17 @@ public class SaveLoadManager : MonoBehaviour
         collectedPickupIDs.Clear();
         interactedObjectIDs.Clear(); // ✅ Clear interacted objects
 
+        // Journal availability reset
         pendingJournalAvailable = false;
         if (JournalAvailability.Instance != null)
             JournalAvailability.Instance.DisableJournal();
+
+        // NEW: clear triggered-dialogue list both in memory and on next scene load
+        pendingTriggeredDialogueIDs = new List<string>(); // empty means none triggered
+        if (DialogueEventsManager.Instance != null)
+        {
+            DialogueEventsManager.Instance.ApplyTriggeredListFromSave(pendingTriggeredDialogueIDs); // immediately clear
+        }
 
         LoadGame(slot); // Reload scene
     }
@@ -228,6 +260,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingJournalEntries = null;
         }
 
+        // Apply pending journal availability now that scene is loaded
         if (pendingJournalAvailable.HasValue)
         {
             if (JournalAvailability.Instance != null)
@@ -241,6 +274,22 @@ public class SaveLoadManager : MonoBehaviour
             }
 
             pendingJournalAvailable = null;
+        }
+
+        // NEW: apply pending triggered-dialogue IDs
+        if (pendingTriggeredDialogueIDs != null)
+        {
+            if (DialogueEventsManager.Instance != null)
+            {
+                DialogueEventsManager.Instance.ApplyTriggeredListFromSave(pendingTriggeredDialogueIDs);
+                Debug.Log($"[SaveLoadManager] Applied {pendingTriggeredDialogueIDs.Count} triggered dialogue IDs from save.");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] DialogueEventsManager not present to apply triggered-dialogue IDs.");
+            }
+
+            pendingTriggeredDialogueIDs = null;
         }
     }
 

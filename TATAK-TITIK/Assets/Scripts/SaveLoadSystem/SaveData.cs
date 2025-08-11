@@ -11,18 +11,28 @@ public class SaveData
     public string equippedItem;
 
     public List<string> collectedPickupIDs = new List<string>();
-    public List<string> interactedObjectIDs = new List<string>(); // ✅ Moved here
+    public List<string> interactedObjectIDs = new List<string>();
+
+    // NEW: persisted triggered dialogue IDs
+    public List<string> triggeredDialogueIDs = new List<string>();
 
     public bool journalAvailable = false;
 
-    public SaveData(Vector3 position, List<JournalEntry> journal, List<InventoryItemData> inventory, string equipped, string sceneName, bool journalAvailableFlag)
+    public SaveData(Vector3 position,
+                    List<JournalEntry> journal,
+                    List<InventoryItemData> inventory,
+                    string equipped,
+                    string sceneName,
+                    bool journalAvailableFlag,
+                    List<string> triggeredIDs = null)
     {
         playerPosition = new float[] { position.x, position.y, position.z };
-        journalEntries = journal;
-        inventoryItems = inventory;
+        journalEntries = journal ?? new List<JournalEntry>();
+        inventoryItems = inventory ?? new List<InventoryItemData>();
         equippedItem = equipped;
         savedSceneName = sceneName;
-        this.journalAvailable = journalAvailableFlag;
+        journalAvailable = journalAvailableFlag;
+        triggeredDialogueIDs = triggeredIDs ?? new List<string>();
     }
 
     public Vector3 GetPosition() => new Vector3(playerPosition[0], playerPosition[1], playerPosition[2]);

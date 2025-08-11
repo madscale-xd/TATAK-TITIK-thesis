@@ -26,7 +26,7 @@ public class JournalAcquisition : MonoBehaviour
         startPosition = transform.position;
         bobPhase = Random.Range(0f, Mathf.PI * 2f); // so multiple pickups look natural if present
         myCollider = GetComponent<Collider>();
-        myCollider.isTrigger = true; // recommended; script requires trigger collider
+        if (myCollider != null) myCollider.isTrigger = true; // recommended; script requires trigger collider
         renderers = GetComponentsInChildren<Renderer>();
     }
 
@@ -64,18 +64,6 @@ public class JournalAcquisition : MonoBehaviour
         var slm = SaveLoadManager.Instance;
         if (slm != null)
         {
-            GameObject wizardGO = GameObject.Find("Wizard"); // set this to your wizard GameObject's name
-            if (wizardGO != null)
-            {
-                var npc = wizardGO.GetComponent<NPCDialogueTrigger>();
-                if (npc != null)
-                {
-                    npc.SetDialogueLines(new string[] {
-                        "New line",
-                        "More wizardy stuff..."
-                    });
-                }
-            }
             // If currentSaveSlot is not valid (<= 0), assign slot 1
             if (slm.currentSaveSlot <= 0)
             {
