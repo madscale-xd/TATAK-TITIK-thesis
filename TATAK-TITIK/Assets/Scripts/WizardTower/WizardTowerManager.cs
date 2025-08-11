@@ -109,7 +109,11 @@ public class WizardTowerManager : MonoBehaviour
 
         // If the journal has already been acquired, immediately change the NPC ID now
         if (journalAcquired)
-            ChangeNPCIdIfNeeded();
+            ChangeNPCIdIfNeeded();  
+            if (SaveLoadManager.Instance != null)
+            {
+                SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            }
     }
 
     private void HandleJournalAvailabilityChanged(bool available)

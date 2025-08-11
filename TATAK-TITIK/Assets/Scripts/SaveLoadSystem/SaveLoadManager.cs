@@ -26,6 +26,8 @@ public class SaveLoadManager : MonoBehaviour
 
     // NEW: pending triggered dialogue IDs to apply after scene load
     private List<string> pendingTriggeredDialogueIDs = null;
+    private List<NPCIdPair> pendingNpcIdOverrides = null;
+    private List<NPCDialoguePair> pendingNpcDialogueOverrides = null;
 
     private void Awake()
     {
@@ -101,6 +103,26 @@ public class SaveLoadManager : MonoBehaviour
             journalAvailable
         );
 
+        // Persist runtime NPC IDs (GameObject name -> current npcID)
+        var allTriggers = FindObjectsOfType<NPCDialogueTrigger>();
+        data.npcIdOverrides = new List<NPCIdPair>();
+        foreach (var t in allTriggers)
+        {
+            if (t == null) continue;
+            // store the GameObject name so we can find the exact instance at load time
+            data.npcIdOverrides.Add(new NPCIdPair(t.gameObject.name, t.GetNPCID()));
+        }
+
+        // persist runtime NPC dialogue lines per npcID
+        data.npcDialogueOverrides = new List<NPCDialoguePair>();
+        foreach (var t in allTriggers)
+        {
+            if (t == null) continue;
+            string id = t.GetNPCID();
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            data.npcDialogueOverrides.Add(new NPCDialoguePair(id, t.GetDialogueLines()));
+        }
+
         // persist pickup/interacted sets
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
         data.interactedObjectIDs = new List<string>(interactedObjectIDs);
@@ -147,6 +169,10 @@ public class SaveLoadManager : MonoBehaviour
             // NEW: store triggered dialogue IDs to apply on next scene load
             pendingTriggeredDialogueIDs = data.triggeredDialogueIDs != null ? new List<string>(data.triggeredDialogueIDs) : new List<string>();
 
+            // NEW: store NPC ID overrides to apply on next scene load
+            pendingNpcIdOverrides = data.npcIdOverrides != null ? new List<NPCIdPair>(data.npcIdOverrides) : new List<NPCIdPair>();
+            pendingNpcDialogueOverrides = data.npcDialogueOverrides != null ? new List<NPCDialoguePair>(data.npcDialogueOverrides) : new List<NPCDialoguePair>();
+
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
         else
@@ -157,6 +183,7 @@ public class SaveLoadManager : MonoBehaviour
             // set defaults
             pendingJournalAvailable = false;
             pendingTriggeredDialogueIDs = new List<string>(); // empty = none triggered
+            pendingNpcIdOverrides = new List<NPCIdPair>();    // empty = no overrides
         }
 
         Time.timeScale = 1f;
@@ -204,11 +231,13 @@ public class SaveLoadManager : MonoBehaviour
             DialogueEventsManager.Instance.ApplyTriggeredListFromSave(pendingTriggeredDialogueIDs); // immediately clear
         }
 
+        // NEW: clear NPC ID overrides for next load (so NPCs revert to prefab defaults after reload)
+        pendingNpcIdOverrides = new List<NPCIdPair>();
+        // We don't attempt to modify runtime NPC components here because the scene will be reloaded.
+        // After reload, OnSceneLoaded will apply pendingNpcIdOverrides (which is now empty), so defaults stay.
+
         LoadGame(slot); // Reload scene
     }
-
-
-
     private IEnumerator ResetInventoryDelayed()
     {
         yield return null;
@@ -291,6 +320,32 @@ public class SaveLoadManager : MonoBehaviour
 
             pendingTriggeredDialogueIDs = null;
         }
+
+        if (pendingNpcIdOverrides != null) // we'll add this field similar to pendingTriggeredDialogueIDs
+        {
+            foreach (var pair in pendingNpcIdOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(pair.gameObjectName) || string.IsNullOrWhiteSpace(pair.npcID))
+                    continue;
+
+                GameObject go = GameObject.Find(pair.gameObjectName);
+                if (go == null) continue;
+
+                var trigger = go.GetComponent<NPCDialogueTrigger>();
+                if (trigger == null) continue;
+
+                // Directly set the NPC ID — registry and runtime state updated.
+                trigger.SetNPCID(pair.npcID);
+            }
+
+            Debug.Log($"[SaveLoadManager] Applied {pendingNpcIdOverrides.Count} NPC ID overrides from save.");
+            pendingNpcIdOverrides = null;
+        }
+
+        if (pendingNpcDialogueOverrides != null && pendingNpcDialogueOverrides.Count > 0)
+        {
+            StartCoroutine(ApplyDialogueOverridesNextFrame());
+        }
     }
 
     private IEnumerator SetPlayerPositionNextFrame()
@@ -334,7 +389,7 @@ public class SaveLoadManager : MonoBehaviour
     {
         return collectedPickupIDs.Contains(pickupID);
     }
-    
+
     public void MarkObjectInteracted(string objectID)
     {
         interactedObjectIDs.Add(objectID);
@@ -343,5 +398,28 @@ public class SaveLoadManager : MonoBehaviour
     public bool IsObjectInteracted(string objectID)
     {
         return interactedObjectIDs.Contains(objectID);
+    }
+    private IEnumerator ApplyDialogueOverridesNextFrame()
+    {
+        // Wait a frame so NPCDialogueTrigger.OnEnable() has a chance to register into the static registry
+        yield return null;
+
+        int applied = 0;
+        foreach (var pair in pendingNpcDialogueOverrides)
+        {
+            if (string.IsNullOrWhiteSpace(pair.npcID)) continue;
+            var trigger = NPCDialogueTrigger.GetByID(pair.npcID);
+            if (trigger != null)
+            {
+                trigger.SetDialogueLines(pair.dialogueLines ?? new string[0]);
+                applied++;
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveLoadManager] Could not find NPC with ID '{pair.npcID}' to apply saved dialogue.");
+            }
+        }
+        Debug.Log($"[SaveLoadManager] Applied {applied} NPC dialogue overrides.");
+        pendingNpcDialogueOverrides = null;
     }
 }
