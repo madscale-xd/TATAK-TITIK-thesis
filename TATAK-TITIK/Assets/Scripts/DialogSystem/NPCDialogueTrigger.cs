@@ -11,6 +11,7 @@ public class NPCDialogueTrigger : MonoBehaviour
     public string[] dialogueLines;
     private DialogueManager dialogueManager;
     private PlayerInteraction playerInteraction;
+    private DialogueEventsManager dialogueEventsManager;
 
     // simple registry for quick lookups
     private static readonly Dictionary<string, NPCDialogueTrigger> registry = new Dictionary<string, NPCDialogueTrigger>();
@@ -19,6 +20,7 @@ public class NPCDialogueTrigger : MonoBehaviour
     {
         dialogueManager = FindObjectOfType<DialogueManager>();
         playerInteraction = FindObjectOfType<PlayerInteraction>();
+        dialogueEventsManager = FindObjectOfType <DialogueEventsManager>();
     }
 
     private void OnEnable()
@@ -107,5 +109,9 @@ public class NPCDialogueTrigger : MonoBehaviour
         {
             registry[npcID] = this;
         }
+    }
+    public void NotifyDialogueFinished()
+    {
+        dialogueEventsManager?.AddToTriggeredList(gameObject.name);
     }
 }
