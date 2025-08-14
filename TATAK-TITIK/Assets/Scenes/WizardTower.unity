@@ -96,7 +96,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 0}
+  m_LightingDataAsset: {fileID: 112000000, guid: 52f815228f715f74981763556c2289cc, type: 2}
   m_LightingSettings: {fileID: 0}
 --- !u!196 &4
 NavMeshSettings:
@@ -3692,7 +3692,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTag: Player
   destroyDelay: 0.15
-  sceneToLoad: TestScene
+  sceneToLoad: Baybayin
 --- !u!1 &867980493
 GameObject:
   m_ObjectHideFlags: 0

@@ -9,8 +9,8 @@ EditorBuildSettings:
     path: Assets/Scenes/WizardTower.unity
     guid: 2133b20ee8f3e384bb8d3faed6b0665e
   - enabled: 1
-    path: Assets/Scenes/TestScene.unity
-    guid: 53554c0f2db9f6f4a99e4a637ecd1939
+    path: Assets/Scenes/Baybayin.unity
+    guid: 095b5966713a04e449a8b738f411a073
   - enabled: 1
     path: Assets/Scenes/MainMenu.unity
     guid: 9fc0d4010bbf28b4594072e72b8655ab
