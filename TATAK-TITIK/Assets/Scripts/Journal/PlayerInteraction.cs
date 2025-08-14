@@ -3,37 +3,42 @@ using UnityEngine;
 public class PlayerInteraction : MonoBehaviour
 {
     private NPCDialogueTrigger currentNPC;
-    private SceneButtonManager SBM;
+    private SceneButtonManager sbm;
+
+    private void Awake()
+    {
+        sbm = FindObjectOfType<SceneButtonManager>();
+        if (sbm == null)
+            Debug.LogWarning("[PlayerInteraction] SceneButtonManager not found in Awake.");
+    }
 
     void Update()
     {
-        SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
+        // Cache sbm lookup fallback (just in case)
+        if (sbm == null) sbm = FindObjectOfType<SceneButtonManager>();
+        if (sbm == null) return;
+
         if (Input.GetKeyDown(KeyCode.E) && currentNPC != null && sbm.IsEKeyEnabled())
         {
-            // Call JournalTrigger on the NPC if it has one
-            JournalTrigger jt = currentNPC.GetComponent<JournalTrigger>();
-            if (jt != null)
+            // Use TryGetComponent to avoid GetComponent allocations & to be robust
+            if (currentNPC.TryGetComponent<JournalTrigger>(out var jt))
             {
                 jt.AddEntryToJournal();
             }
 
-            // Also trigger dialogue or other interaction here if needed
+            // NOTE: DialogueManager still controls starting the dialogue UI in your project,
+            // so we leave that responsibility to DialogueManager (which listens for E too).
         }
     }
 
-    // Called by NPCDialogueTrigger when player enters trigger
     public void SetCurrentNPC(NPCDialogueTrigger npc)
     {
         currentNPC = npc;
     }
 
-    // Called by NPCDialogueTrigger when player leaves trigger
     public void ClearCurrentNPC(NPCDialogueTrigger npc)
     {
-        // Only clear if the exiting NPC is the current one
         if (currentNPC == npc)
-        {
             currentNPC = null;
-        }
     }
 }

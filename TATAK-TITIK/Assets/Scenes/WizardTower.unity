@@ -759,8 +759,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29e30f02ecfdd524f9a6a7abb10a08ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  keyword: ASLJdj
-  displayWord: Isa pa to
+  entries:
+  - key: Journal1
+    displayWord: Sample word
+  - key: Journal2
+    displayWord: Fill in the
+  - key: Journal3
+    displayWord: Other box!
+  keyword: 
+  displayWord: 
+  enabledOnStart: 1
 --- !u!114 &189318076
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -775,13 +783,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   npcID: Wizard1
   dialogueLines:
-  - Lingo, my apprentice.
-  - You came!
-  - 
-  - ASDASDASD
-  - ASDASDASD
-  - ASDASDASD
-  - ASDASDASD
+  - Lingo, my apprentice. You came!
+  - 'I require your assistance with the completion of this '
+  - linguistics Grimoire.
+  - Take this journal.
 --- !u!114 &189318077
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3687,6 +3692,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTag: Player
   destroyDelay: 0.15
+  sceneToLoad: TestScene
 --- !u!1 &867980493
 GameObject:
   m_ObjectHideFlags: 0
@@ -8067,12 +8073,15 @@ MonoBehaviour:
   requiredNPCID2: Wizard2
   newNPCID2: Wizard3
   newWizardDialogueLines:
-  - You have taken the journal... my new lines!
-  - More wizardy stuff...
+  - To summon your journal, press J.
+  - This will allow you to write down what you think
+  - the communities' words mean. Try it!
   newWizard3DialogueLines:
-  - You used the portal... I'm now Wizard3!
-  - New wizard3 lines...
+  - Now, you are ready.
+  - Go forth and assist me
+  - this noble cause, Lingo!
   portalGameObject: {fileID: 865608179}
+  portalPersistID: 
   pollInterval: 0.25
   portalAvailability: {fileID: 904778934}
 --- !u!4 &1844920614

@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -21,6 +23,9 @@ public class PlayerMovement : MonoBehaviour
     private float bounceTimer = 0f;
     private float originalY;
 
+    // NEW: cached reference to DialogueManager to detect when dialogue panel is open
+    private DialogueManager dialogueManager;
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -28,11 +33,22 @@ public class PlayerMovement : MonoBehaviour
         if (playerVisual != null)
             originalY = playerVisual.localPosition.y;
 
+        // Cache DialogueManager (optional inspector assignment isn't used here)
+        dialogueManager = FindObjectOfType<DialogueManager>();
+
         Debug.Log("PlayerMovement START at " + transform.position);
     }
 
     void Update()
     {
+        // If DialogueManager exists and the dialogue panel is visible, block horizontal input.
+        bool dialogueBlockingMovement = false;
+        if (dialogueManager != null && dialogueManager.dialoguePanelGroup != null)
+        {
+            // dialoguePanelGroup.alpha > 0 means the dialogue UI is shown (including during fade).
+            dialogueBlockingMovement = dialogueManager.dialoguePanelGroup.alpha > 0f;
+        }
+
         // Ground check
         isGrounded = controller.isGrounded;
 
@@ -41,38 +57,53 @@ public class PlayerMovement : MonoBehaviour
         else
             verticalVelocity += gravity * Time.deltaTime;
 
-        // Get input
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
-        Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
-        Vector3 rotatedDirection = inputRotation * inputDirection;
-
         Vector3 horizontalVelocity;
 
-        if (rotatedDirection.magnitude >= 0.1f)
+        if (!dialogueBlockingMovement)
         {
-            horizontalVelocity = Vector3.SmoothDamp(velocity, rotatedDirection * moveSpeed, ref currentVelocity, smoothTime);
+            // Get input
+            float horizontal = Input.GetAxisRaw("Horizontal");
+            float vertical = Input.GetAxisRaw("Vertical");
+            Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+            Vector3 rotatedDirection = inputRotation * inputDirection;
 
-            // Rotation
-            Vector3 lookDirection = new Vector3(rotatedDirection.x, 0f, rotatedDirection.z);
-            Quaternion targetRotation = Quaternion.LookRotation(lookDirection) * Quaternion.Euler(0, -90f, 0);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
-
-            // Bounce while walking
-            bounceTimer += Time.deltaTime * bounceFrequency;
-            if (playerVisual != null)
+            if (rotatedDirection.magnitude >= 0.1f)
             {
-                float bounceOffset = Mathf.Sin(bounceTimer * Mathf.PI * 2f) * bounceAmplitude;
-                Vector3 visualPos = playerVisual.localPosition;
-                visualPos.y = originalY + bounceOffset;
-                playerVisual.localPosition = visualPos;
+                horizontalVelocity = Vector3.SmoothDamp(velocity, rotatedDirection * moveSpeed, ref currentVelocity, smoothTime);
+
+                // Rotation
+                Vector3 lookDirection = new Vector3(rotatedDirection.x, 0f, rotatedDirection.z);
+                Quaternion targetRotation = Quaternion.LookRotation(lookDirection) * Quaternion.Euler(0, -90f, 0);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
+
+                // Bounce while walking
+                bounceTimer += Time.deltaTime * bounceFrequency;
+                if (playerVisual != null)
+                {
+                    float bounceOffset = Mathf.Sin(bounceTimer * Mathf.PI * 2f) * bounceAmplitude;
+                    Vector3 visualPos = playerVisual.localPosition;
+                    visualPos.y = originalY + bounceOffset;
+                    playerVisual.localPosition = visualPos;
+                }
+            }
+            else
+            {
+                horizontalVelocity = Vector3.SmoothDamp(velocity, Vector3.zero, ref currentVelocity, smoothTime);
+                bounceTimer = 0f;
+
+                if (playerVisual != null)
+                {
+                    Vector3 visualPos = playerVisual.localPosition;
+                    visualPos.y = originalY;
+                    playerVisual.localPosition = visualPos;
+                }
             }
         }
         else
         {
+            // Dialogue open: prevent horizontal movement and reset walk visuals
             horizontalVelocity = Vector3.SmoothDamp(velocity, Vector3.zero, ref currentVelocity, smoothTime);
             bounceTimer = 0f;
-
             if (playerVisual != null)
             {
                 Vector3 visualPos = playerVisual.localPosition;
@@ -81,7 +112,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // Apply move
+        // Apply move (keep gravity)
         velocity = new Vector3(horizontalVelocity.x, verticalVelocity, horizontalVelocity.z);
         controller.Move(velocity * Time.deltaTime);
     }
