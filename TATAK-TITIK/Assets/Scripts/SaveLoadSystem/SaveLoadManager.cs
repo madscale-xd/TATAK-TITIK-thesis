@@ -29,6 +29,9 @@ public class SaveLoadManager : MonoBehaviour
     private List<NPCIdPair> pendingNpcIdOverrides = null;
     private List<NPCDialoguePair> pendingNpcDialogueOverrides = null;
 
+    // NEW: pending time of day to apply after scene load (hours 0..24). NaN means none.
+    private float pendingTimeOfDay = float.NaN;
+
     private void Awake()
     {
         if (Instance == null)
@@ -138,6 +141,18 @@ public class SaveLoadManager : MonoBehaviour
             data.triggeredDialogueIDs = new List<string>();
         }
 
+        // NEW: capture current time-of-day from DayNightCycle (if present)
+        var dnc = FindObjectOfType<DayNightCycle>();
+        if (dnc != null)
+        {
+            data.timeOfDayHours = dnc.GetTimeOfDayHours();
+            Debug.Log($"[SaveLoadManager] Captured timeOfDay = {data.timeOfDayHours}h to savefile.");
+        }
+        else
+        {
+            data.timeOfDayHours = -1f;
+        }
+
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
     }
@@ -173,6 +188,12 @@ public class SaveLoadManager : MonoBehaviour
             pendingNpcIdOverrides = data.npcIdOverrides != null ? new List<NPCIdPair>(data.npcIdOverrides) : new List<NPCIdPair>();
             pendingNpcDialogueOverrides = data.npcDialogueOverrides != null ? new List<NPCDialoguePair>(data.npcDialogueOverrides) : new List<NPCDialoguePair>();
 
+            // NEW: store pending timeOfDay to apply after scene load
+            if (data.timeOfDayHours >= 0f)
+                pendingTimeOfDay = data.timeOfDayHours;
+            else
+                pendingTimeOfDay = float.NaN;
+
             Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
         }
         else
@@ -184,6 +205,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingJournalAvailable = false;
             pendingTriggeredDialogueIDs = new List<string>(); // empty = none triggered
             pendingNpcIdOverrides = new List<NPCIdPair>();    // empty = no overrides
+            pendingTimeOfDay = float.NaN;
         }
 
         Time.timeScale = 1f;
@@ -235,6 +257,9 @@ public class SaveLoadManager : MonoBehaviour
         pendingNpcIdOverrides = new List<NPCIdPair>();
         // We don't attempt to modify runtime NPC components here because the scene will be reloaded.
         // After reload, OnSceneLoaded will apply pendingNpcIdOverrides (which is now empty), so defaults stay.
+
+        // Clear pending time of day
+        pendingTimeOfDay = float.NaN;
 
         LoadGame(slot); // Reload scene
     }
@@ -346,6 +371,14 @@ public class SaveLoadManager : MonoBehaviour
         {
             StartCoroutine(ApplyDialogueOverridesNextFrame());
         }
+
+        // Apply pending time of day if present
+        if (!float.IsNaN(pendingTimeOfDay))
+        {
+            StartCoroutine(ApplyPendingTimeOfDayNextFrame(pendingTimeOfDay));
+            // pendingTimeOfDay will be cleared by the coroutine (or you can set it to NaN now)
+            pendingTimeOfDay = float.NaN;
+        }
     }
 
     private IEnumerator SetPlayerPositionNextFrame()
@@ -421,5 +454,32 @@ public class SaveLoadManager : MonoBehaviour
         }
         Debug.Log($"[SaveLoadManager] Applied {applied} NPC dialogue overrides.");
         pendingNpcDialogueOverrides = null;
+    }
+    private IEnumerator ApplyPendingTimeOfDayNextFrame(float timeHours)
+    {
+        // Wait a frame so other components (DayNightCycle.Start etc.) run.
+        yield return null;
+
+        // Try a few more frames in case something else initializes slightly later.
+        int attempts = 0;
+        DayNightCycle dnc = null;
+        while (attempts < 5)
+        {
+            dnc = FindObjectOfType<DayNightCycle>();
+            if (dnc != null) break;
+            attempts++;
+            yield return null;
+        }
+
+        if (dnc != null)
+        {
+            // Snap to the saved hour. If you'd like an animated restore, replace 0f with seconds (e.g. 1f).
+            dnc.SetTimeOfDay(timeHours, 0f);
+            Debug.Log($"[SaveLoadManager] Applied saved timeOfDay = {timeHours}h to DayNightCycle after {attempts + 1} frame(s).");
+        }
+        else
+        {
+            Debug.LogWarning("[SaveLoadManager] DayNightCycle not found to apply saved timeOfDay (tried several frames).");
+        }
     }
 }

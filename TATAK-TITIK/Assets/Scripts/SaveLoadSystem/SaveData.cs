@@ -50,6 +50,9 @@ public class SaveData
     public List<NPCIdPair> npcIdOverrides = new List<NPCIdPair>();
     public List<NPCDialoguePair> npcDialogueOverrides = new List<NPCDialoguePair>();
 
+    // NEW: persisted time-of-day (in hours 0..24). -1 means not set / not saved.
+    public float timeOfDayHours = -1f;
+
     public SaveData(Vector3 position,
                     List<JournalEntry> journal,
                     List<InventoryItemData> inventory,
@@ -66,6 +69,7 @@ public class SaveData
         journalAvailable = journalAvailableFlag;
         triggeredDialogueIDs = triggeredIDs ?? new List<string>();
         npcIdOverrides = new List<NPCIdPair>();
+        // timeOfDayHours remains default (-1) unless caller populates it.
     }
 
     public Vector3 GetPosition() => new Vector3(playerPosition[0], playerPosition[1], playerPosition[2]);
