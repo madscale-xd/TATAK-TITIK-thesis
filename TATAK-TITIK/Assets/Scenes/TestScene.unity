@@ -7451,6 +7451,7 @@ MonoBehaviour:
   sunLight: {fileID: 369109270}
   moonLight: {fileID: 1601362950}
   rotationSpeed: 50
+  autoRotate: 1
   maxSunIntensity: 1.2
   maxMoonIntensity: 0.4
   dayAmbient: {r: 0.8, g: 0.8, b: 0.8, a: 1}
@@ -7489,6 +7490,9 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
+  OnTimeSet:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!4 &1186661656
 Transform:
   m_ObjectHideFlags: 0

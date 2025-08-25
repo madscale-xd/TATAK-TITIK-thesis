@@ -31,6 +31,9 @@ public class SaveLoadManager : MonoBehaviour
 
     // NEW: pending time of day to apply after scene load (hours 0..24). NaN means none.
     private float pendingTimeOfDay = float.NaN;
+    // NEW: pending inventory to apply after scene load
+    private List<InventoryItemData> pendingInventoryData = null;
+    private string pendingEquippedItem = null;
 
     private void Awake()
     {
@@ -76,7 +79,7 @@ public class SaveLoadManager : MonoBehaviour
             Debug.LogError("Save slot out of range!");
             return;
         }
-
+        currentSaveSlot = slot;
         AssignPlayerTransform();
         if (playerTransform == null)
         {
@@ -164,19 +167,34 @@ public class SaveLoadManager : MonoBehaviour
             Debug.LogError("Load slot out of range!");
             return;
         }
+        currentSaveSlot = slot;
+        Debug.Log($"[SaveLoadManager] Loading save slot {slot}...");
 
         SaveData data = SaveSystem.Load(slot);
         if (data != null)
         {
             positionToLoad = data.GetPosition();
-            shouldApplyPosition = true;
+
+            // Validate the saved position before applying
+            if (IsValidPosition(positionToLoad))
+            {
+                shouldApplyPosition = true;
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveLoadManager] Saved player position is invalid ({positionToLoad}). Will not apply position on load.");
+                shouldApplyPosition = false;
+            }
 
             pendingJournalEntries = data.journalEntries;
 
-            // Load inventory from saved data
-            InventoryManager.Instance.LoadInventory(data.inventoryItems, data.equippedItem, itemDatabase);
-            collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs);
-            interactedObjectIDs = new HashSet<string>(data.interactedObjectIDs); // ✅ Load it back
+            // DO NOT apply inventory immediately here — stash it to be applied after the scene loads
+            pendingInventoryData = data.inventoryItems != null ? new List<InventoryItemData>(data.inventoryItems) : new List<InventoryItemData>();
+            pendingEquippedItem = data.equippedItem;
+
+            // persist collected / interacted sets right away
+            collectedPickupIDs = new HashSet<string>(data.collectedPickupIDs ?? new List<string>());
+            interactedObjectIDs = new HashSet<string>(data.interactedObjectIDs ?? new List<string>());
 
             // NEW: restore pending journal availability
             pendingJournalAvailable = data.journalAvailable;
@@ -194,30 +212,50 @@ public class SaveLoadManager : MonoBehaviour
             else
                 pendingTimeOfDay = float.NaN;
 
-            Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad}");
+            Debug.Log($"Loading scene for save slot {slot} with saved position {positionToLoad} (valid={shouldApplyPosition})");
         }
         else
         {
             Debug.LogWarning($"No save file found in slot {slot}. Starting fresh.");
-            shouldApplyPosition = false; // Ensure nothing is applied
-
-            // set defaults
+            // Clear any runtime state so it doesn't carry over between slots
+            shouldApplyPosition = false;
+            pendingJournalEntries = null;
             pendingJournalAvailable = false;
-            pendingTriggeredDialogueIDs = new List<string>(); // empty = none triggered
-            pendingNpcIdOverrides = new List<NPCIdPair>();    // empty = no overrides
+            pendingTriggeredDialogueIDs = new List<string>();
+            pendingNpcIdOverrides = new List<NPCIdPair>();
+            pendingNpcDialogueOverrides = new List<NPCDialoguePair>();
             pendingTimeOfDay = float.NaN;
-        }
 
+            // **** CRITICAL: clear collected/interacted sets so slot isolation holds ****
+            collectedPickupIDs.Clear();
+            interactedObjectIDs.Clear();
+
+            // Ensure Inventory is cleared (slot isolation)
+            shouldResetInventoryAfterLoad = true;
+
+            // Clear any pending inventory we might have kept
+            pendingInventoryData = null;
+            pendingEquippedItem = null;
+        }
         Time.timeScale = 1f;
-        // safe load: only reference data if not null
+
+        // safe load: only reference data if not null & savedSceneName not empty
+        string defaultScene = "WizardTower";
         if (data != null && !string.IsNullOrEmpty(data.savedSceneName))
         {
-            SceneManager.LoadScene(data.savedSceneName, LoadSceneMode.Single);
+            // Validate the saved scene is actually in build settings
+            if (IsSceneInBuildSettings(data.savedSceneName))
+            {
+                SceneManager.LoadScene(data.savedSceneName, LoadSceneMode.Single);
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveLoadManager] Saved scene '{data.savedSceneName}' is not in Build Settings. Falling back to '{defaultScene}'.");
+                SceneManager.LoadScene(defaultScene, LoadSceneMode.Single);
+            }
         }
         else
         {
-            // <-- Change this string to pick the default scene after clearing / missing save
-            string defaultScene = "WizardTower";
             Debug.LogWarning($"No scene name found in save data. Defaulting to {defaultScene}.");
             SceneManager.LoadScene(defaultScene, LoadSceneMode.Single);
         }
@@ -258,8 +296,10 @@ public class SaveLoadManager : MonoBehaviour
         // We don't attempt to modify runtime NPC components here because the scene will be reloaded.
         // After reload, OnSceneLoaded will apply pendingNpcIdOverrides (which is now empty), so defaults stay.
 
-        // Clear pending time of day
+        // Clear pending time of day and inventory
         pendingTimeOfDay = float.NaN;
+        pendingInventoryData = null;
+        pendingEquippedItem = null;
 
         LoadGame(slot); // Reload scene
     }
@@ -296,6 +336,19 @@ public class SaveLoadManager : MonoBehaviour
         if (shouldApplyPosition)
         {
             StartCoroutine(SetPlayerPositionNextFrame());
+        }
+
+        // First: apply pending inventory (so InventoryManager/UI are ready)
+        if (pendingInventoryData != null)
+        {
+            StartCoroutine(ApplyPendingInventoryNextFrame());
+        }
+
+        // Ensure InventoryManager points to the InventoryUI in the just-loaded scene and refresh UI
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.inventoryUI = FindObjectOfType<InventoryUI>();
+            InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
         }
 
         // 🧠 Restore journal entries after scene load
@@ -383,35 +436,86 @@ public class SaveLoadManager : MonoBehaviour
 
     private IEnumerator SetPlayerPositionNextFrame()
     {
+        // wait a frame so scene objects have at least started
         yield return null;
 
         AssignPlayerTransform();
         if (playerTransform == null)
         {
+            Debug.LogWarning("[SaveLoadManager] SetPlayerPositionNextFrame: playerTransform still null.");
             yield break;
         }
 
-        CharacterController controller = playerTransform.GetComponent<CharacterController>();
-        PlayerMovement movement = playerTransform.GetComponent<PlayerMovement>();
+        // grab common movement/physics components we want to temporarily disable
+        var controller = playerTransform.GetComponent<CharacterController>();
+        var movement = playerTransform.GetComponent<PlayerMovement>();
+        var navAgent = playerTransform.GetComponent<UnityEngine.AI.NavMeshAgent>();
+        var rb = playerTransform.GetComponent<Rigidbody>();
 
-        if (movement != null)
-            movement.enabled = false;
+        // disable things that may override transform changes
+        if (movement != null) movement.enabled = false;
+        if (controller != null) controller.enabled = false;
+        if (navAgent != null) navAgent.enabled = false;
+        if (rb != null)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
 
-        if (controller != null)
-            controller.enabled = false;
+        // Try setting the position over several frames to beat out other scene initializers.
+        const int maxAttempts = 10;
+        int attempts = 0;
+        bool positionStable = false;
 
+        while (attempts < maxAttempts && !positionStable)
+        {
+            // snap to saved position
+            playerTransform.position = positionToLoad;
+
+            // one frame to let other scripts run and perhaps try to override
+            yield return null;
+
+            // If another script moved the player away, we'll catch that here and retry.
+            float distance = Vector3.Distance(playerTransform.position, positionToLoad);
+            if (distance <= 0.05f) // good enough threshold
+            {
+                positionStable = true;
+                break;
+            }
+
+            attempts++;
+            Debug.Log($"[SaveLoadManager] Attempt {attempts}: player position after set is {playerTransform.position} (wanted {positionToLoad}), retrying...");
+        }
+
+        // Final snap to ensure position is exact
         playerTransform.position = positionToLoad;
-        Debug.Log($"[SaveLoadManager] Position restored to {positionToLoad}");
 
+        // small safety yield so physics/agents settle
         yield return null;
 
-        if (controller != null)
-            controller.enabled = true;
+        // restore physics/agent/movement
+        if (rb != null)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = false;
+        }
 
-        if (movement != null)
-            movement.enabled = true;
+        if (navAgent != null)
+        {
+            // If the nav-agent had an outstanding path it may immediately move again;
+            // that's why we disabled it above — we re-enable after position has been set.
+            navAgent.Warp(positionToLoad); // warp is safe if agent exists
+            navAgent.enabled = true;
+        }
+
+        if (controller != null) controller.enabled = true;
+        if (movement != null) movement.enabled = true;
 
         shouldApplyPosition = false;
+
+        Debug.Log($"[SaveLoadManager] Player position applied (attempts={attempts + 1}). Final position: {playerTransform.position}");
     }
     public void MarkPickupCollected(string pickupID)
     {
@@ -481,5 +585,66 @@ public class SaveLoadManager : MonoBehaviour
         {
             Debug.LogWarning("[SaveLoadManager] DayNightCycle not found to apply saved timeOfDay (tried several frames).");
         }
+    }
+
+    private IEnumerator ApplyPendingInventoryNextFrame()
+    {
+        // Wait a frame so InventoryManager / InventoryUI have a chance to initialize
+        yield return null;
+
+        int attempts = 0;
+        while (attempts < 10 && InventoryManager.Instance == null)
+        {
+            // try to find an InventoryManager in the scene (it may set Instance in Awake)
+            var im = FindObjectOfType<InventoryManager>();
+            attempts++;
+            yield return null;
+        }
+
+        if (pendingInventoryData != null)
+        {
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.LoadInventory(pendingInventoryData, pendingEquippedItem ?? "", itemDatabase);
+                // Defensive: ensure the InventoryManager has the scene's InventoryUI and force a UI update
+                InventoryManager.Instance.inventoryUI = FindObjectOfType<InventoryUI>();
+                InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+                Debug.Log($"[SaveLoadManager] Applied pending inventory (items={pendingInventoryData.Count}) after {attempts + 1} frame(s).");
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] InventoryManager not found to apply saved inventory.");
+            }
+        }
+
+        // Clear pending storage whether applied or not
+        pendingInventoryData = null;
+        pendingEquippedItem = null;
+    }
+
+    // Helper: check if a scene name is present in build settings
+    private bool IsSceneInBuildSettings(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return false;
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string path = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(i);
+            string name = System.IO.Path.GetFileNameWithoutExtension(path);
+            if (name == sceneName) return true;
+        }
+        return false;
+    }
+
+    // Helper: validate saved position before we attempt to apply it
+    private bool IsValidPosition(Vector3 pos)
+    {
+        if (float.IsNaN(pos.x) || float.IsNaN(pos.y) || float.IsNaN(pos.z)) return false;
+        if (float.IsInfinity(pos.x) || float.IsInfinity(pos.y) || float.IsInfinity(pos.z)) return false;
+
+        // Reject extremely large values which are usually corrupted saves
+        const float maxAbs = 100000f;
+        if (Mathf.Abs(pos.x) > maxAbs || Mathf.Abs(pos.y) > maxAbs || Mathf.Abs(pos.z) > maxAbs) return false;
+
+        return true;
     }
 }

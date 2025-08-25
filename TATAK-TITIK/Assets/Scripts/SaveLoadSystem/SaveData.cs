@@ -30,7 +30,6 @@ public class NPCDialoguePair
     }
 }
 
-
 [System.Serializable]
 public class SaveData
 {

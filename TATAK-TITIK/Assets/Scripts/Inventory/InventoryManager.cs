@@ -17,30 +17,22 @@ public class InventoryManager : MonoBehaviour
     }
 
     void Awake()
-{
-    if (Instance == null)
     {
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-
-        // Find InventoryUI dynamically by name "InventoryPanel"
-        GameObject inventoryPanel = GameObject.Find("InventoryPanel");
-        if (inventoryPanel != null)
+        if (Instance == null)
         {
-            inventoryUI = inventoryPanel.GetComponent<InventoryUI>();
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+
+            // Prefer FindObjectOfType to be robust across different scene setups
+            inventoryUI = FindObjectOfType<InventoryUI>();
             if (inventoryUI == null)
-                Debug.LogWarning("InventoryUI component not found on InventoryPanel!");
+                Debug.LogWarning("InventoryUI component not found in scene on Awake.");
         }
         else
         {
-            Debug.LogWarning("InventoryPanel GameObject not found in scene.");
+            Destroy(gameObject);
         }
     }
-    else
-    {
-        Destroy(gameObject);
-    }
-}
 
     void Update()
     {
@@ -80,7 +72,7 @@ public class InventoryManager : MonoBehaviour
         }
 
         Debug.Log($"Picked up {amount}x {itemName}");
-        inventoryUI = FindObjectOfType<InventoryUI>();
+        if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
         if (inventoryUI != null)
             inventoryUI.UpdateInventoryUI();
     }
@@ -88,6 +80,12 @@ public class InventoryManager : MonoBehaviour
     public void ResetInventory()
     {
         inventoryUI = FindObjectOfType<InventoryUI>();
+        items.Clear();
+        equippedItem = "";
+
+        // Ensure inventoryUI reference is current
+        if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
+
         items.Clear();
         equippedItem = "";
 
@@ -150,7 +148,11 @@ public class InventoryManager : MonoBehaviour
 
         equippedItem = equipped;
 
+        if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
+
         if (inventoryUI != null)
             inventoryUI.UpdateInventoryUI();
+        else
+            Debug.LogWarning("[InventoryManager] InventoryUI not found when applying LoadInventory. UI will update when available.");
     }
 }
