@@ -30,6 +30,15 @@ public class CameraObstructionHandler : MonoBehaviour
     [Tooltip("If true, will attempt to set Standard shader to Fade rendering mode on the cloned material.")]
     public bool forceFadeModeForStandardShader = true;
 
+    // Add these public fields near the top of the class:
+    [Header("Debug / Robustness")]
+    [Tooltip("Draw the camera->target ray and log hits to Console.")]
+    public bool debugDrawRay = false;
+    [Tooltip("If true, use a small spherecast (radius) in addition to a raycast to catch thin geometry.")]
+    public bool useSphereFallback = true;
+    [Tooltip("Sphere radius used by fallback SphereCastAll.")]
+    public float sphereFallbackRadius = 0.25f;
+
     [Header("Filter")]
     [Tooltip("If set, objects with any of these tags will be ignored")]
     public string[] ignoreTags;
@@ -81,38 +90,91 @@ public class CameraObstructionHandler : MonoBehaviour
         if (target == null || cam == null) return;
 
         Vector3 origin = cam.transform.position;
-        Vector3 dest = target.position + Vector3.up * 0.9f; // slight offset so we aim roughly at torso
+        Vector3 dest = target.position + Vector3.up * 0.9f; // torso aim
         Vector3 dir = dest - origin;
         float dist = dir.magnitude;
         if (dist <= 0.0001f) return;
-
         dir /= dist;
 
-        // choose whether to hit trigger colliders
+        if (debugDrawRay)
+        {
+            Debug.DrawLine(origin, dest, Color.cyan, checkInterval);
+        }
+
         QueryTriggerInteraction qti = includeTriggerColliders ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore;
 
-        // RaycastAll so we can detect multiple obstructions
-        RaycastHit[] hits = Physics.RaycastAll(origin, dir, dist, obstructionMask, qti);
+        // 1) RaycastAll
+        RaycastHit[] rayHits = Physics.RaycastAll(origin, dir, dist, obstructionMask, qti);
 
-        // Build a set of renderers hit (including children of hit collider)
-        HashSet<Renderer> hitRenderers = new HashSet<Renderer>();
-        foreach (var h in hits)
+        // 2) Optional SphereCastAll fallback (useful for thin meshes or holes)
+        RaycastHit[] sphereHits = null;
+        if ((rayHits == null || rayHits.Length == 0) && useSphereFallback)
         {
-            var go = h.collider.gameObject;
+            if (debugDrawRay) Debug.Log("[CameraObstructionHandler] No ray hits; trying SphereCastAll fallback.");
+            sphereHits = Physics.SphereCastAll(origin, sphereFallbackRadius, dir, dist, obstructionMask, qti);
+        }
+
+        // 3) Overlap checks (IMPORTANT for "camera inside collider" cases)
+        // We'll check the camera origin, the target point, and a couple samples along the line.
+        // Tunable: sample count and radius (we're reusing sphereFallbackRadius as overlap radius).
+        var overlapColliders = new HashSet<Collider>();
+        try
+        {
+            // Always check origin (camera might be partially inside object)
+            var oc = Physics.OverlapSphere(origin, sphereFallbackRadius, obstructionMask, qti);
+            foreach (var c in oc) overlapColliders.Add(c);
+
+            // Also check a small sphere around the destination (in case target overlaps)
+            var dc = Physics.OverlapSphere(dest, Mathf.Min(0.5f, sphereFallbackRadius), obstructionMask, qti);
+            foreach (var c in dc) overlapColliders.Add(c);
+
+            // Sample along the ray a few times (to catch thin or oddly scaled colliders)
+            int samples = Mathf.Clamp((int)(dist / 1.0f), 1, 6); // 1 sample per ~1 unit, cap 6
+            for (int i = 1; i <= samples; i++)
+            {
+                float t = (float)i / (samples + 1);
+                Vector3 samplePos = Vector3.Lerp(origin, dest, t);
+                var sc = Physics.OverlapSphere(samplePos, sphereFallbackRadius, obstructionMask, qti);
+                foreach (var c in sc) overlapColliders.Add(c);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            // OverlapSphere shouldn't usually throw — catch to be safe in exotic physics setups
+            if (debugDrawRay) Debug.LogWarning("[CameraObstructionHandler] OverlapSphere exception: " + ex.Message);
+        }
+
+        // Consolidate colliders from rayHits, sphereHits, and overlapColliders into a single set
+        var collidersSet = new HashSet<Collider>();
+        if (rayHits != null)
+        {
+            foreach (var h in rayHits) if (h.collider != null) collidersSet.Add(h.collider);
+        }
+        if (sphereHits != null)
+        {
+            foreach (var h in sphereHits) if (h.collider != null) collidersSet.Add(h.collider);
+        }
+        foreach (var c in overlapColliders) collidersSet.Add(c);
+
+        // Build a set of renderers from those colliders (look on object, children, and parent)
+        HashSet<Renderer> hitRenderers = new HashSet<Renderer>();
+        foreach (var col in collidersSet)
+        {
+            if (col == null) continue;
+            var go = col.gameObject;
             if (ShouldIgnore(go)) continue;
 
-            // Add any Renderer on the hit object or its parents - and its children too if needed.
+            if (debugDrawRay)
+                Debug.Log($"[CameraObstructionHandler] Detected collider: {go.name} (isTrigger={col.isTrigger})");
+
             var rend = go.GetComponent<Renderer>();
             if (rend != null) hitRenderers.Add(rend);
 
-            // Also consider children renderers (some large walls have children)
-            var childRenderers = go.GetComponentsInChildren<Renderer>();
-            foreach (var cr in childRenderers)
-                hitRenderers.Add(cr);
+            foreach (var cr in go.GetComponentsInChildren<Renderer>(true))
+                if (cr != null) hitRenderers.Add(cr);
 
-            // consider parent renderers
-            var parentRenderer = go.GetComponentInParent<Renderer>();
-            if (parentRenderer != null) hitRenderers.Add(parentRenderer);
+            var parentR = go.GetComponentInParent<Renderer>();
+            if (parentR != null) hitRenderers.Add(parentR);
         }
 
         // Fade out newly obstructing renderers
@@ -125,14 +187,13 @@ public class CameraObstructionHandler : MonoBehaviour
             }
         }
 
-        // Fade in / restore renderers that are no longer obstructing
+        // Restore those no longer obstructing
         var toRestore = new List<Renderer>();
         foreach (var r in currentlyObstructing)
         {
             if (!hitRenderers.Contains(r))
                 toRestore.Add(r);
         }
-
         foreach (var r in toRestore)
         {
             currentlyObstructing.Remove(r);
@@ -329,15 +390,16 @@ public class CameraObstructionHandler : MonoBehaviour
     }
 
     // Try to set material rendering mode similar to Unity Standard shader helper
+    // Replace the existing SetupMaterialWithRenderingMode function with this:
     private static void SetupMaterialWithRenderingMode(Material material, RenderingMode renderingMode)
     {
         if (material == null) return;
-        // This is based on Unity's Standard shader properties - may not work for URP/HDRP/custom shaders.
-        if (material.HasProperty("_Mode"))
-        {
-            material.SetFloat("_Mode", (float)renderingMode);
-        }
 
+        // Try Standard-style properties first (safe no-op for non-Standard shaders)
+        if (material.HasProperty("_Mode"))
+            material.SetFloat("_Mode", (float)renderingMode);
+
+        // Apply common changes (blend, zwrite, keywords, renderQueue)
         switch (renderingMode)
         {
             case RenderingMode.Opaque:
@@ -348,6 +410,7 @@ public class CameraObstructionHandler : MonoBehaviour
                 material.DisableKeyword("_ALPHABLEND_ON");
                 material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 material.renderQueue = -1;
+                material.SetOverrideTag("RenderType", "Opaque");
                 break;
 
             case RenderingMode.Cutout:
@@ -358,9 +421,11 @@ public class CameraObstructionHandler : MonoBehaviour
                 material.DisableKeyword("_ALPHABLEND_ON");
                 material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
+                material.SetOverrideTag("RenderType", "TransparentCutout");
                 break;
 
             case RenderingMode.Fade:
+            case RenderingMode.Transparent:
                 material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                 material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                 material.SetInt("_ZWrite", 0);
@@ -368,19 +433,43 @@ public class CameraObstructionHandler : MonoBehaviour
                 material.EnableKeyword("_ALPHABLEND_ON");
                 material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                break;
-
-            case RenderingMode.Transparent:
-                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                material.SetInt("_ZWrite", 0);
-                material.DisableKeyword("_ALPHATEST_ON");
-                material.DisableKeyword("_ALPHABLEND_ON");
-                material.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                material.SetOverrideTag("RenderType", "Transparent");
                 break;
         }
+
+        // EXTRA: try to support URP Lit (Universal Render Pipeline)
+        // URP uses a "_Surface" float (0=Opaque,1=Transparent) and keywords like "_SURFACE_TYPE_TRANSPARENT"
+        // and often uses "_BaseColor" property for color.
+        string shaderName = material.shader != null ? material.shader.name : "";
+        if (!string.IsNullOrEmpty(shaderName) && shaderName.ToLowerInvariant().Contains("universal render pipeline"))
+        {
+            // make it transparent in URP terms
+            if (material.HasProperty("_Surface"))
+                material.SetFloat("_Surface", renderingMode == RenderingMode.Opaque ? 0f : 1f);
+
+            // URP sometimes needs this keyword:
+            if (renderingMode == RenderingMode.Opaque)
+                material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            else
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            // ensure render queue is transparent
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.SetOverrideTag("RenderType", "Transparent");
+        }
+
+        // EXTRA: try to support HDRP lit shaders (best-effort)
+        if (!string.IsNullOrEmpty(shaderName) && shaderName.ToLowerInvariant().Contains("hdrp"))
+        {
+            // HDRP uses "_SurfaceType" or different properties depending on HDRP version.
+            if (material.HasProperty("_SurfaceType"))
+                material.SetFloat("_SurfaceType", renderingMode == RenderingMode.Opaque ? 0f : 1f);
+
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.SetOverrideTag("RenderType", "Transparent");
+        }
     }
+
 
     private static Color GetMaterialColor(Material m)
     {
