@@ -9,8 +9,12 @@ public class InventoryManager : MonoBehaviour
     public List<InventoryItem> items = new List<InventoryItem>();
 
     public string equippedItem = "";
+    public int equippedSlot = -1;
 
     public Sprite blankIcon; // assign a blank black sprite in inspector
+
+    // NEW: assign your ItemDatabase in the inspector (optional; LoadInventory can also provide it)
+    public ItemDatabase itemDatabase;
 
     void Start()
     {
@@ -52,6 +56,7 @@ public class InventoryManager : MonoBehaviour
     }
 
 
+    // Modified AddItem: when creating a new slot, fetch icon from itemDatabase (if assigned).
     public void AddItem(string itemName, int amount = 1)
     {
         InventoryItem item = items.Find(i => i.itemName == itemName);
@@ -68,13 +73,24 @@ public class InventoryManager : MonoBehaviour
                 return;
             }
 
-            items.Add(new InventoryItem(itemName, amount));
+            // Lookup both sprites centrally
+            Sprite icon = null;
+            Sprite equippedIcon = null;
+            if (itemDatabase != null)
+            {
+                icon = itemDatabase.GetIcon(itemName);
+                equippedIcon = itemDatabase.GetEquippedIcon(itemName);
+            }
+
+            if (icon == null && blankIcon != null) icon = blankIcon;
+            if (equippedIcon == null) equippedIcon = null; // OK to be null
+
+            items.Add(new InventoryItem(itemName, amount, icon, equippedIcon));
         }
 
         Debug.Log($"Picked up {amount}x {itemName}");
         if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
-        if (inventoryUI != null)
-            inventoryUI.UpdateInventoryUI();
+        inventoryUI?.UpdateInventoryUI();
     }
 
     public void ResetInventory()
@@ -115,9 +131,14 @@ public class InventoryManager : MonoBehaviour
             InventoryItem item = items[slotIndex];
             if (item.quantity > 0)
             {
-                equippedItem = item.itemName;
+                equippedSlot = slotIndex;                    // authoritative
+                equippedItem = item.itemName;               // compatibility
                 Debug.Log($"Equipped: {equippedItem} (from slot {slotIndex + 1})");
-                FloatingNotifier.Instance.ShowMessage($"You equipped {equippedItem}(from slot {slotIndex + 1})", Color.white);
+
+                // update UI so equipped sprite shows
+                FindObjectOfType<InventoryUI>()?.UpdateInventoryUI();
+
+                FloatingNotifier.Instance.ShowMessage($"You equipped {equippedItem} (from slot {slotIndex + 1})", Color.white);
             }
             else
             {
@@ -130,29 +151,44 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
+    // LoadInventory still accepts a database param; if provided, we set the manager's itemDatabase too.
     public void LoadInventory(List<InventoryItemData> dataList, string equipped, ItemDatabase database)
     {
         items.Clear();
 
         foreach (var data in dataList)
         {
-            InventoryItem item = new InventoryItem(data.itemName, data.quantity);
-            
+            Sprite icon = null;
+            Sprite equippedIcon = null;
             if (database != null)
-                item.icon = database.GetIcon(data.itemName);
-            else
-                item.icon = null;  // No database = no icon
-            
+            {
+                icon = database.GetIcon(data.itemName);
+                equippedIcon = database.GetEquippedIcon(data.itemName);
+            }
+
+            if (icon == null && blankIcon != null) icon = blankIcon;
+
+            InventoryItem item = new InventoryItem(data.itemName, data.quantity, icon, equippedIcon);
             items.Add(item);
         }
 
+        if (database != null) itemDatabase = database;
+
         equippedItem = equipped;
 
-        if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
+        // Try to find the slot index that matches equipped string (backwards compat)
+        equippedSlot = -1;
+        if (!string.IsNullOrEmpty(equippedItem))
+        {
+            for (int i = 0; i < items.Count; i++)
+                if (items[i].itemName == equippedItem)
+                {
+                    equippedSlot = i;
+                    break;
+                }
+        }
 
-        if (inventoryUI != null)
-            inventoryUI.UpdateInventoryUI();
-        else
-            Debug.LogWarning("[InventoryManager] InventoryUI not found when applying LoadInventory. UI will update when available.");
+        if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
+        inventoryUI?.UpdateInventoryUI();
     }
 }

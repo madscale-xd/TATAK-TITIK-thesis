@@ -6,10 +6,21 @@ public class InventorySlotUI : MonoBehaviour
 {
     public Image iconImage;
     public TextMeshProUGUI quantityText;
+    public GameObject equippedOutline; // optional: turn on a highlight when equipped
 
-    public void SetSlot(Sprite icon, int quantity)
+    // Now takes unequippedSprite, equippedSprite, and a bool
+    public void SetSlot(Sprite unequippedSprite, Sprite equippedSprite, bool isEquipped, int quantity)
     {
-        iconImage.sprite = icon;
-        quantityText.text = quantity.ToString();
+        Sprite toShow = isEquipped ? (equippedSprite != null ? equippedSprite : unequippedSprite) : unequippedSprite;
+
+        if (iconImage != null)
+        {
+            iconImage.sprite = toShow;
+            iconImage.enabled = (toShow != null);
+        }
+
+        if (quantityText != null) quantityText.text = quantity.ToString();
+
+        if (equippedOutline != null) equippedOutline.SetActive(isEquipped);
     }
 }
