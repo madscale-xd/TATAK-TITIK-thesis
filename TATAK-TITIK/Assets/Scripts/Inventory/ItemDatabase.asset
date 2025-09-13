@@ -21,23 +21,35 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 1f2784fc17223a244864c2cd96adc488, type: 3}
     equippedIcon: {fileID: 21300000, guid: 45366c516076af54fa38f2df26aa6503, type: 3}
     description: Dahon
-  - itemName: Paypay
-    icon: {fileID: 21300000, guid: 3cc60211476f72e40b0802edcfc2a59f, type: 3}
-    equippedIcon: {fileID: 21300000, guid: 2c81318d3b8f23e459a80bc3172c144f, type: 3}
-    description: Paypay
-  - itemName: Dahong May Kulay
+  - itemName: KulayDahon
     icon: {fileID: 21300000, guid: da44f2c1d412ccd40ab7662857089713, type: 3}
     equippedIcon: {fileID: 21300000, guid: f61c7e47a4b113745b2ff8f272e5fb50, type: 3}
     description: Dahong May Kulay
-  - itemName: Pangkulay
-    icon: {fileID: 0}
-    equippedIcon: {fileID: 0}
-    description: Pangkulay
   - itemName: Kiping
     icon: {fileID: 21300000, guid: 52ec00ce82087b3469d3b5169c731b17, type: 3}
     equippedIcon: {fileID: 21300000, guid: 0dfa854ebc798ef4a9fbf03da896d81a, type: 3}
     description: Kiping
-  - itemName: Bigas
+  - itemName: PaypayDahon
+    icon: {fileID: 21300000, guid: 3cc60211476f72e40b0802edcfc2a59f, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 2c81318d3b8f23e459a80bc3172c144f, type: 3}
+    description: Paypay
+  - itemName: SakoBigas
+    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
+    description: Bigas
+  - itemName: EmptyBowl
+    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
+    description: Bigas
+  - itemName: BowlBigas
+    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
+    description: Bigas
+  - itemName: BowlPangkulay
+    icon: {fileID: 0}
+    equippedIcon: {fileID: 0}
+    description: BowlPangkulay
+  - itemName: Kiko
     icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
     equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
     description: Bigas
