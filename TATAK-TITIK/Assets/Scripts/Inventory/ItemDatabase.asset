@@ -37,17 +37,17 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
     equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
     description: Bigas
-  - itemName: EmptyBowl
-    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
-    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
+  - itemName: BowlEmpty
+    icon: {fileID: 21300000, guid: 86d79497df8f20f40b79f6fa2775c7dc, type: 3}
+    equippedIcon: {fileID: 21300000, guid: ad3777b4bb78a3349a8163b9c411968d, type: 3}
     description: Bigas
   - itemName: BowlBigas
-    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
-    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
+    icon: {fileID: 21300000, guid: 5371b997f6f012942a8974b2a269c7fd, type: 3}
+    equippedIcon: {fileID: 21300000, guid: ad0dabcaa2172f24ab45e9e3ef4e89e6, type: 3}
     description: Bigas
   - itemName: BowlPangkulay
-    icon: {fileID: 0}
-    equippedIcon: {fileID: 0}
+    icon: {fileID: 21300000, guid: d855ad6402b181d44852a213be6736ec, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 9d48911661fb403489baac2a6e0b0c40, type: 3}
     description: BowlPangkulay
   - itemName: Kiko
     icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
