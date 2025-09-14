@@ -18,7 +18,11 @@ public class DialogueManager : MonoBehaviour
     [Tooltip("Assign the DialogueEventsManager in the scene here. If left empty, the script will use DialogueEventsManager.Instance if available.")]
     public DialogueEventsManager dialogueEventsManager;
 
+    // Coroutine handles so we only stop what we started
     private Coroutine typewriterCoroutine;
+    private Coroutine backgroundFadeCoroutine;
+    private Coroutine panelFadeCoroutine;
+    private Coroutine promptFadeCoroutine;
     private bool isFading = false;
     private bool dialogueVisible = false;
 
@@ -28,11 +32,16 @@ public class DialogueManager : MonoBehaviour
     private string[] currentDialogueLines;
     private int currentLineIndex = 0;
     private SceneButtonManager SBM;
+    
+    [Header("Background (optional)")]
+    [Tooltip("CanvasGroup used as a dim background behind the dialogue panel. Leave null to disable.")]
+    public CanvasGroup dialogueBackgroundGroup;
 
     void Start()
     {
         SetCanvasGroup(pressEPromptGroup, 0, false);
         SetCanvasGroup(dialoguePanelGroup, 0, false);
+        SetCanvasGroup(dialogueBackgroundGroup, 0f, false);
 
         // fallback to singleton if inspector reference wasn't set
         if (dialogueEventsManager == null && DialogueEventsManager.Instance != null)
@@ -89,7 +98,8 @@ public class DialogueManager : MonoBehaviour
     {
         currentNPC = npc;
         ResetDialogueState();  // clear old stuff on new NPC enter
-        StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
+        if (pressEPromptGroup != null)
+            promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
     }
 
     public void HidePromptFor(NPCDialogueTrigger npc)
@@ -118,10 +128,17 @@ public class DialogueManager : MonoBehaviour
             typewriterCoroutine = null;
         }
 
+        // Stop only the specific fade coroutines we might have started
+        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+        if (panelFadeCoroutine != null) { StopCoroutine(panelFadeCoroutine); panelFadeCoroutine = null; }
+        if (promptFadeCoroutine != null) { StopCoroutine(promptFadeCoroutine); promptFadeCoroutine = null; }
+
         dialogueText.text = "";
-        StopAllCoroutines();
+
+        // Do NOT call StopAllCoroutines() here — it cancels fades in progress elsewhere.
 
         SetCanvasGroup(dialoguePanelGroup, 0, false);
+        SetCanvasGroup(dialogueBackgroundGroup, 0f, false);
     }
 
     private void StartDialogue(string[] dialogueLines)
@@ -166,9 +183,17 @@ public class DialogueManager : MonoBehaviour
             typewriterCoroutine = null;
         }
 
-        dialogueText.text = "";
+        // stop panel fade if still running
+        if (panelFadeCoroutine != null) { StopCoroutine(panelFadeCoroutine); panelFadeCoroutine = null; }
+        if (dialoguePanelGroup != null)
+            panelFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialoguePanelGroup, 0, false));
+        yield return panelFadeCoroutine;
 
-        yield return FadeCanvasGroup(dialoguePanelGroup, 0, false);
+        // Fade out the dim background as the dialogue fully closes
+        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+        if (dialogueBackgroundGroup != null)
+            backgroundFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialogueBackgroundGroup, 0f, false));
+        yield return backgroundFadeCoroutine;
 
         // Dialogue panel has closed — consider this the "finished" moment and also mark DEM (safe duplicate)
         if (currentNPC != null)
@@ -179,16 +204,35 @@ public class DialogueManager : MonoBehaviour
         isFading = false;
     }
 
-    private IEnumerator TransitionToDialogue()
+   private IEnumerator TransitionToDialogue()
     {
         isFading = true;
 
         // Fade out press E prompt
-        yield return FadeCanvasGroup(pressEPromptGroup, 0, false);
+        if (promptFadeCoroutine != null) { StopCoroutine(promptFadeCoroutine); promptFadeCoroutine = null; }
+        if (pressEPromptGroup != null)
+            promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 0, false));
+        yield return promptFadeCoroutine;
+
         yield return new WaitForSeconds(0.05f);
 
-        // Fade in dialogue panel
-        yield return FadeCanvasGroup(dialoguePanelGroup, 1, true);
+        // Start background fade but KEEP the GameObject active at the end
+        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+        if (dialogueBackgroundGroup != null)
+            backgroundFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialogueBackgroundGroup, 1f, true));
+
+        // Ensure the background does NOT block input even though it stays active
+        if (dialogueBackgroundGroup != null)
+        {
+            dialogueBackgroundGroup.interactable = false;
+            dialogueBackgroundGroup.blocksRaycasts = false;
+        }
+
+        // Fade in dialogue panel and wait so the panel becomes interactable only after fade finishes
+        if (panelFadeCoroutine != null) { StopCoroutine(panelFadeCoroutine); panelFadeCoroutine = null; }
+        if (dialoguePanelGroup != null)
+            panelFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialoguePanelGroup, 1, true));
+        yield return panelFadeCoroutine;
 
         // Start typewriter effect
         dialogueText.text = "";
@@ -197,7 +241,8 @@ public class DialogueManager : MonoBehaviour
         isFading = false;
     }
 
-    private IEnumerator CloseDialogueAndPrompt()
+
+   private IEnumerator CloseDialogueAndPrompt()
     {
         isFading = true;
 
@@ -211,9 +256,21 @@ public class DialogueManager : MonoBehaviour
         // Clear dialogue text
         dialogueText.text = "";
 
-        // Fade out both dialogue panel and prompt
-        yield return FadeCanvasGroup(dialoguePanelGroup, 0, false);
-        yield return FadeCanvasGroup(pressEPromptGroup, 0, false);
+        // Fade out both dialogue panel and background and prompt — stop any running fades first
+        if (panelFadeCoroutine != null) { StopCoroutine(panelFadeCoroutine); panelFadeCoroutine = null; }
+        if (dialoguePanelGroup != null)
+            panelFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialoguePanelGroup, 0, false));
+        yield return panelFadeCoroutine;
+
+        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+        if (dialogueBackgroundGroup != null)
+            backgroundFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialogueBackgroundGroup, 0f, false));
+        yield return backgroundFadeCoroutine;
+
+        if (promptFadeCoroutine != null) { StopCoroutine(promptFadeCoroutine); promptFadeCoroutine = null; }
+        if (pressEPromptGroup != null)
+            promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 0, false));
+        yield return promptFadeCoroutine;
 
         isFading = false;
     }
@@ -269,8 +326,15 @@ public class DialogueManager : MonoBehaviour
 
     public void ForceHidePrompt()
     {
-        StopAllCoroutines(); // stop fading if in progress
+        // stop only our tracked coroutines
+        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+        if (panelFadeCoroutine != null) { StopCoroutine(panelFadeCoroutine); panelFadeCoroutine = null; }
+        if (promptFadeCoroutine != null) { StopCoroutine(promptFadeCoroutine); promptFadeCoroutine = null; }
+        if (typewriterCoroutine != null) { StopCoroutine(typewriterCoroutine); typewriterCoroutine = null; }
+
         SetCanvasGroup(pressEPromptGroup, 0f, false);
+        SetCanvasGroup(dialogueBackgroundGroup, 0f, false);
+        SetCanvasGroup(dialoguePanelGroup, 0f, false);
     }
 
     public bool HasCurrentNPC()
