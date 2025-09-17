@@ -36,6 +36,16 @@ public class NavMeshNPCController : MonoBehaviour
     [Tooltip("If true, fall back to agent.velocity/steeringTarget when path info is unavailable.")]
     public bool fallbackToMovement = true;
 
+    [Header("Visual / Bounce")]
+    [Tooltip("The transform that visually represents the NPC (the one we'll move up/down). If null, falls back to modelRoot then root.")]
+    public Transform modelVisual = null;
+    [Tooltip("Maximum vertical offset for the bounce (meters).")]
+    public float bounceAmplitude = 0.1f;
+    [Tooltip("How fast the bounce cycles (times per second).")]
+    public float bounceFrequency = 5f;
+    [Tooltip("Minimum agent speed (m/s) to consider the NPC as 'moving'.")]
+    public float moveSpeedThreshold = 0.05f;
+
     [Header("Debug")]
     public bool debugGizmos = false;
 
@@ -44,6 +54,11 @@ public class NavMeshNPCController : MonoBehaviour
     Coroutine patrolRoutine = null;
 
     const float k_RotationDirSqrThreshold = 0.0001f;
+
+    // bounce runtime
+    private float bounceTimer = 0f;
+    private float originalVisualLocalY = 0f;
+    private bool visualInitialized = false;
 
     void Awake()
     {
@@ -56,13 +71,28 @@ public class NavMeshNPCController : MonoBehaviour
 
     void Start()
     {
+        // Setup patrol if requested
         if (usePatrol && patrolPoints != null && patrolPoints.Length > 0)
             StartPatrol();
+
+        // Determine modelVisual fallback and cache original local Y
+        if (modelVisual == null)
+        {
+            if (modelRoot != null) modelVisual = modelRoot;
+            else modelVisual = transform;
+        }
+
+        if (modelVisual != null)
+        {
+            originalVisualLocalY = modelVisual.localPosition.y;
+            visualInitialized = true;
+        }
     }
 
     void Update()
     {
         HandleRotation();
+        HandleBounce();
     }
 
     // -------------------
@@ -150,6 +180,36 @@ public class NavMeshNPCController : MonoBehaviour
         }
 
         return false;
+    }
+
+    // -------------------
+    // Bounce handling
+    // -------------------
+    void HandleBounce()
+    {
+        if (!visualInitialized || modelVisual == null || agent == null) return;
+
+        // Consider NPC moving when agent has velocity above threshold and not intentionally stopped and not arrived.
+        bool isMoving = agent.velocity.sqrMagnitude >= (moveSpeedThreshold * moveSpeedThreshold) && !agent.isStopped && !HasArrived();
+
+        if (isMoving)
+        {
+            // advance timer and apply vertical offset (same math as your player script)
+            bounceTimer += Time.deltaTime * bounceFrequency;
+            float bounceOffset = Mathf.Sin(bounceTimer * Mathf.PI * 2f) * bounceAmplitude;
+
+            Vector3 localPos = modelVisual.localPosition;
+            localPos.y = originalVisualLocalY + bounceOffset;
+            modelVisual.localPosition = localPos;
+        }
+        else
+        {
+            // reset timer and ensure visual returns to original Y
+            bounceTimer = 0f;
+            Vector3 localPos = modelVisual.localPosition;
+            localPos.y = originalVisualLocalY;
+            modelVisual.localPosition = localPos;
+        }
     }
 
     /// <summary>

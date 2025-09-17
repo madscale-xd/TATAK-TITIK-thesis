@@ -78,6 +78,12 @@ public class NPCTracker : MonoBehaviour
     private bool hasSavedOriginal = false;
     private Coroutine restoreRotationCoroutine = null;
 
+    // NavMeshAgent saved settings for zeroing movement (new)
+    private float savedAgentSpeed = 0f;
+    private float savedAgentAcceleration = 0f;
+    private bool savedAgentUpdatePosition = true;
+    private bool hasSavedAgentMovementSettings = false;
+
     void Start()
     {
         defaultRotation = transform.rotation;
@@ -208,21 +214,37 @@ public class NPCTracker : MonoBehaviour
                 hadPathBeforeTrigger = localAgent.hasPath;
                 if (hadPathBeforeTrigger)
                 {
-                    // destination is readable
                     savedDestination = localAgent.destination;
                 }
 
-                // stop movement; do not disable the component
-                localAgent.isStopped = true;
+                // Save current agent movement settings so we can restore later
+                if (!hasSavedAgentMovementSettings)
+                {
+                    savedAgentSpeed = localAgent.speed;
+                    savedAgentAcceleration = localAgent.acceleration;
+                    savedAgentUpdatePosition = localAgent.updatePosition;
+                    hasSavedAgentMovementSettings = true;
+                }
 
-                // optionally clear path (only if you want the NPC to forget where it was going)
+                // Prevent movement but preserve path/destination
+                localAgent.isStopped = true;
+                localAgent.speed = 0f;
+                localAgent.acceleration = 0f;
+
+                // Pin the agent so its internal steering won't nudge the transform:
+                // - nextPosition is writeable: set it to the current transform to avoid drift
+                localAgent.nextPosition = transform.position;
+
+                // Optionally stop the agent from updating the transform while stopped.
+                // This is the safest to prevent visual sliding. Restore this flag when resuming.
+                localAgent.updatePosition = false;
+
+                // Optionally clear path (only if you want the NPC to forget where it was going)
                 if (clearPathWhenStopped)
                 {
                     localAgent.ResetPath();
+                    // if you ResetPath but still want to resume to savedDestination later you'll re-SetDestination on restore
                 }
-
-                // ensure agent.updatePosition remains true so the agent continues to keep the transform on the NavMesh while stopped
-                localAgent.updatePosition = true;
             }
 
             // Animator modifications
@@ -314,6 +336,22 @@ public class NPCTracker : MonoBehaviour
             {
                 // restore isStopped
                 localAgent.isStopped = agentWasStoppedBeforeTrigger;
+
+                // Restore movement settings if we saved them
+                if (hasSavedAgentMovementSettings)
+                {
+                    // restore speed/accel first
+                    localAgent.speed = savedAgentSpeed;
+                    localAgent.acceleration = savedAgentAcceleration;
+
+                    // Align internal agent position to transform before re-enabling updates to avoid snapping
+                    localAgent.nextPosition = transform.position;
+
+                    // restore updatePosition AFTER nextPosition is aligned
+                    localAgent.updatePosition = savedAgentUpdatePosition;
+
+                    hasSavedAgentMovementSettings = false;
+                }
 
                 // if we cleared the path earlier and we want to restore it, reassign destination
                 if (clearPathWhenStopped && hadPathBeforeTrigger)
