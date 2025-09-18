@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using System.Collections;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class DialogueManager : MonoBehaviour
 {
@@ -84,46 +85,19 @@ public class DialogueManager : MonoBehaviour
                 StartCoroutine(ShowPromptDeferred());
             }
         }
-
-        // Keyboard input handling (only if eKeyEnabled)
         if (Input.GetKeyDown(KeyCode.E) && !isFading && eKeyEnabled)
         {
             if (!dialogueVisible)
-            {
                 StartDialogue(currentNPC.GetDialogueLines());
-            }
             else
-            {
-                if (typewriterCoroutine != null)
-                {
-                    // Stop the coroutine and instantly finish the typewriter using TMP's visible character count
-                    StopCoroutine(typewriterCoroutine);
-                    typewriterCoroutine = null;
-
-                    // Ensure full text assigned and make all characters visible (tags are ignored by maxVisibleCharacters)
-                    dialogueText.text = currentDialogue;
-                    dialogueText.ForceMeshUpdate();
-                    dialogueText.maxVisibleCharacters = dialogueText.textInfo.characterCount;
-                }
-                else
-                {
-                    currentLineIndex++;
-                    if (currentLineIndex < currentDialogueLines.Length)
-                    {
-                        currentDialogue = currentDialogueLines[currentLineIndex];
-                        typewriterCoroutine = StartCoroutine(TypeText(currentDialogue));
-                    }
-                    else
-                    {
-                        CloseDialogue();
-                    }
-                }
-            }
+                AdvanceOrFinishDialogue();
         }
 
+        // Mouse click: call the same helper; but ignore clicks over UI
         if (dialogueVisible && Input.GetMouseButtonDown(0))
         {
-            CloseDialogue();
+            if (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject())
+                AdvanceOrFinishDialogue();
         }
 
         // store for next frame
@@ -311,6 +285,7 @@ public class DialogueManager : MonoBehaviour
         isFading = false;
     }
 
+    // Replace existing FadeCanvasGroup with this unscaled-time version
     private IEnumerator FadeCanvasGroup(CanvasGroup group, float targetAlpha, bool enableAtEnd)
     {
         if (group == null) yield break;
@@ -324,7 +299,7 @@ public class DialogueManager : MonoBehaviour
         while (elapsed < fadeDuration)
         {
             group.alpha = Mathf.Lerp(startAlpha, targetAlpha, elapsed / fadeDuration);
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime; // <-- use unscaled time so fades work when timescale==0
             yield return null;
         }
 
@@ -388,6 +363,9 @@ public class DialogueManager : MonoBehaviour
         SetCanvasGroup(pressEPromptGroup, 0f, false);
         SetCanvasGroup(dialogueBackgroundGroup, 0f, false);
         SetCanvasGroup(dialoguePanelGroup, 0f, false);
+
+        // Cancel any pending prompt fade-in request
+        promptFadeInPending = false;
     }
 
     public bool HasCurrentNPC()
@@ -400,8 +378,16 @@ public class DialogueManager : MonoBehaviour
         return pressEPromptGroup != null && pressEPromptGroup.alpha > 0f;
     }
 
+    // Add this public getter (near HasCurrentNPC / IsPromptVisible)
+    public bool IsDialogueVisible()
+    {
+        return dialogueVisible;
+    }
     public void RefreshPromptIfNeeded()
     {
+        // If a dialogue is currently visible, don't try to refresh the prompt.
+        if (dialogueVisible) return;
+
         if (currentNPC != null && !IsPromptVisible())
         {
             StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
@@ -417,10 +403,41 @@ public class DialogueManager : MonoBehaviour
         yield return null;
         promptFadeInPending = false;
 
+        // If a dialogue is active, never show the prompt.
+        if (dialogueVisible) yield break;
+
         if (currentNPC == null) yield break; // no longer in range
         if (pressEPromptGroup == null) yield break;
 
-        // If there's already a fade coroutine running for the prompt, don't start another (FadeCanvasGroup handles stop logic)
+        // If there's already a fade coroutine running for the prompt, don't start another
         promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
+    }
+
+    private void AdvanceOrFinishDialogue()
+    {
+        if (!dialogueVisible) return;
+
+        if (typewriterCoroutine != null)
+        {
+            StopCoroutine(typewriterCoroutine);
+            typewriterCoroutine = null;
+
+            dialogueText.text = currentDialogue;
+            dialogueText.ForceMeshUpdate();
+            dialogueText.maxVisibleCharacters = dialogueText.textInfo.characterCount;
+        }
+        else
+        {
+            currentLineIndex++;
+            if (currentLineIndex < currentDialogueLines.Length)
+            {
+                currentDialogue = currentDialogueLines[currentLineIndex];
+                typewriterCoroutine = StartCoroutine(TypeText(currentDialogue));
+            }
+            else
+            {
+                CloseDialogue();
+            }
+        }
     }
 }

@@ -69,7 +69,12 @@ public class SceneButtonManager : MonoBehaviour
     {
         if (isMainMenuScene) return;
 
-        dialogueManager.ForceHidePrompt();
+        // In ToggleExitPanel(), before calling ForceHidePrompt():
+        if (dialogueManager != null && !dialogueManager.IsDialogueVisible())
+        {
+            dialogueManager.ForceHidePrompt();
+        }
+
         bool isNowActive = !EXITPanel.activeSelf;
 
         EXITPanel.SetActive(isNowActive);
@@ -118,6 +123,7 @@ public class SceneButtonManager : MonoBehaviour
 
         if (isMainMenuScene) return;
 
+        if (dialogueManager != null && !dialogueManager.IsDialogueVisible())
         dialogueManager.ForceHidePrompt();
         ToggleIfValid(JournalPanel);
         ToggleIfValid(EXITPanel);
@@ -150,6 +156,7 @@ public class SceneButtonManager : MonoBehaviour
 
         if (isNowActive)
         {
+            if (dialogueManager != null && !dialogueManager.IsDialogueVisible())
             dialogueManager.ForceHidePrompt();
             Time.timeScale = 0f;
             DeactivateIfValid(InventoryPanel);
