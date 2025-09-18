@@ -385,8 +385,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotationSpeed: 3
+  playerNearbyRotationSpeed: 180
+  restoreDelay: 0.5
   floatingText: {fileID: 522505204}
   fadeSpeed: 2
+  disableNavControllerWhenTracking: 1
+  stopNavAgent: 1
+  clearPathWhenStopped: 0
+  disableAnimatorRootMotion: 1
+  disableRigidbodyMovement: 0
+  extraBehavioursToDisable: []
 --- !u!54 &189318078
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -8055,9 +8063,12 @@ MonoBehaviour:
   - This will allow you to write down what you think
   - the communities' words mean. Try it!
   newWizard3DialogueLines:
-  - Now, you are ready.
-  - Go into the portal and assist me
-  - in this noble cause, Lingo!
+  - Now, listen closely and remember.
+  - When the words turn <color=#125699><b>blue</b></color>,
+  - Your journal has something new.
+  - When the words turn <color=#990000><b>red</b></color>,
+  - Review what the grimoire's said!
+  - Now, go forth and assist me in this cause, Lingo!
   portalGameObject: {fileID: 865608179}
   portalPersistID: 
   pollInterval: 0.25

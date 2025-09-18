@@ -37,7 +37,7 @@ public class DialogueManager : MonoBehaviour
     [Tooltip("CanvasGroup used as a dim background behind the dialogue panel. Leave null to disable.")]
     public CanvasGroup dialogueBackgroundGroup;
 
-    void Start()
+     void Start()
     {
         SetCanvasGroup(pressEPromptGroup, 0, false);
         SetCanvasGroup(dialoguePanelGroup, 0, false);
@@ -68,9 +68,14 @@ public class DialogueManager : MonoBehaviour
             {
                 if (typewriterCoroutine != null)
                 {
+                    // Stop the coroutine and instantly finish the typewriter using TMP's visible character count
                     StopCoroutine(typewriterCoroutine);
                     typewriterCoroutine = null;
+
+                    // Ensure full text assigned and make all characters visible (tags are ignored by maxVisibleCharacters)
                     dialogueText.text = currentDialogue;
+                    dialogueText.ForceMeshUpdate();
+                    dialogueText.maxVisibleCharacters = dialogueText.textInfo.characterCount;
                 }
                 else
                 {
@@ -302,14 +307,32 @@ public class DialogueManager : MonoBehaviour
 
     private IEnumerator TypeText(string fullText)
     {
-        dialogueText.text = "";
+        if (dialogueText == null)
+            yield break;
 
-        foreach (char c in fullText)
+        // Ensure rich text is enabled
+        dialogueText.richText = true;
+
+        // Assign full text (including <color> / <b> tags) upfront so TMP can parse tags
+        dialogueText.text = fullText;
+
+        // Force TMP to update its internal textInfo so character count is correct (tags are ignored)
+        dialogueText.ForceMeshUpdate();
+
+        int totalVisible = dialogueText.textInfo.characterCount; // visible characters (tags excluded)
+        dialogueText.maxVisibleCharacters = 0; // hide all visible chars to start
+
+        int visible = 0;
+        // Reveal one visible character at a time
+        while (visible <= totalVisible)
         {
-            dialogueText.text += c;
+            dialogueText.maxVisibleCharacters = visible;
+            visible++;
             yield return new WaitForSeconds(typeDelay);
         }
 
+        // Ensure everything is visible at the end and clear our handle
+        dialogueText.maxVisibleCharacters = totalVisible;
         typewriterCoroutine = null;
     }
 
