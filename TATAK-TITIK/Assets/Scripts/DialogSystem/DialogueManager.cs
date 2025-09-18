@@ -8,6 +8,12 @@ public class DialogueManager : MonoBehaviour
     [Header("References")]
     public CanvasGroup pressEPromptGroup;
     public CanvasGroup dialoguePanelGroup;
+    // track last E-key enabled state so we can react when it returns
+    private bool lastEKeyEnabled = true;
+
+    // small guard so we don't start multiple prompt fade coroutines
+    private bool promptFadeInPending = false;
+
     public TMP_Text dialogueText;
 
     [Header("Settings")]
@@ -32,12 +38,12 @@ public class DialogueManager : MonoBehaviour
     private string[] currentDialogueLines;
     private int currentLineIndex = 0;
     private SceneButtonManager SBM;
-    
+
     [Header("Background (optional)")]
     [Tooltip("CanvasGroup used as a dim background behind the dialogue panel. Leave null to disable.")]
     public CanvasGroup dialogueBackgroundGroup;
 
-     void Start()
+    void Start()
     {
         SetCanvasGroup(pressEPromptGroup, 0, false);
         SetCanvasGroup(dialoguePanelGroup, 0, false);
@@ -51,14 +57,36 @@ public class DialogueManager : MonoBehaviour
     void Update()
     {
         SceneButtonManager sbm = FindObjectOfType<SceneButtonManager>();
+
+        // Keep a safe default if sbm is not present
+        bool eKeyEnabled = sbm != null ? sbm.IsEKeyEnabled() : true;
+
+        // If currentNPC is null, ensure prompt & dialogue are closed, then bail out
         if (currentNPC == null)
         {
             if (dialogueVisible || (pressEPromptGroup != null && pressEPromptGroup.alpha > 0))
                 StartCoroutine(CloseDialogueAndPrompt());
+
+            // update lastEKeyEnabled for next frame
+            lastEKeyEnabled = eKeyEnabled;
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.E) && !isFading && sbm.IsEKeyEnabled())
+        // If we have a current NPC and the E-key gating just returned to enabled, refresh the prompt
+        // Also refresh if prompt isn't visible and dialogue isn't open
+        if (!dialogueVisible && currentNPC != null)
+        {
+            bool promptVisible = (pressEPromptGroup != null && pressEPromptGroup.gameObject.activeInHierarchy && pressEPromptGroup.alpha > 0f);
+            if (eKeyEnabled && !promptVisible && !promptFadeInPending)
+            {
+                // Start fade-in
+                promptFadeInPending = true;
+                StartCoroutine(ShowPromptDeferred());
+            }
+        }
+
+        // Keyboard input handling (only if eKeyEnabled)
+        if (Input.GetKeyDown(KeyCode.E) && !isFading && eKeyEnabled)
         {
             if (!dialogueVisible)
             {
@@ -97,6 +125,9 @@ public class DialogueManager : MonoBehaviour
         {
             CloseDialogue();
         }
+
+        // store for next frame
+        lastEKeyEnabled = eKeyEnabled;
     }
 
     public void ShowPromptFor(NPCDialogueTrigger npc)
@@ -209,7 +240,7 @@ public class DialogueManager : MonoBehaviour
         isFading = false;
     }
 
-   private IEnumerator TransitionToDialogue()
+    private IEnumerator TransitionToDialogue()
     {
         isFading = true;
 
@@ -247,7 +278,7 @@ public class DialogueManager : MonoBehaviour
     }
 
 
-   private IEnumerator CloseDialogueAndPrompt()
+    private IEnumerator CloseDialogueAndPrompt()
     {
         isFading = true;
 
@@ -338,13 +369,12 @@ public class DialogueManager : MonoBehaviour
 
     private void SetCanvasGroup(CanvasGroup group, float alpha, bool interactable)
     {
-        if (group != null)
-        {
-            group.alpha = alpha;
-            group.interactable = interactable;
-            group.blocksRaycasts = interactable;
-            group.gameObject.SetActive(alpha > 0f);
-        }
+        if (group == null) return;
+        group.alpha = alpha;
+        group.interactable = interactable;
+        group.blocksRaycasts = interactable;
+        // Do not toggle active state to avoid losing prompt GameObject entirely
+        // group.gameObject.SetActive(alpha > 0f);
     }
 
     public void ForceHidePrompt()
@@ -376,5 +406,21 @@ public class DialogueManager : MonoBehaviour
         {
             StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
         }
+    }
+    /// <summary>
+    /// Fade the press-E prompt in but wait one frame so other UI closures can finish.
+    /// Ensures we don't race with other UI state changes (journal/menus).
+    /// </summary>
+    private IEnumerator ShowPromptDeferred()
+    {
+        // small delay to allow whatever UI just closed to finish disabling
+        yield return null;
+        promptFadeInPending = false;
+
+        if (currentNPC == null) yield break; // no longer in range
+        if (pressEPromptGroup == null) yield break;
+
+        // If there's already a fade coroutine running for the prompt, don't start another (FadeCanvasGroup handles stop logic)
+        promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
     }
 }

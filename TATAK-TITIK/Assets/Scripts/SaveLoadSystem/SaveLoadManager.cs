@@ -28,6 +28,7 @@ public class SaveLoadManager : MonoBehaviour
     private List<string> pendingTriggeredDialogueIDs = null;
     private List<NPCIdPair> pendingNpcIdOverrides = null;
     private List<NPCDialoguePair> pendingNpcDialogueOverrides = null;
+    private List<NPCDestinationPair> pendingNpcDestinations = null;
 
     // NEW: pending time of day to apply after scene load (hours 0..24). NaN means none.
     private float pendingTimeOfDay = float.NaN;
@@ -129,6 +130,34 @@ public class SaveLoadManager : MonoBehaviour
             data.npcDialogueOverrides.Add(new NPCDialoguePair(id, t.GetDialogueLines()));
         }
 
+        // persist NPC movement positions & destinations
+        data.npcDestinations = new List<NPCDestinationPair>();
+        var navs = FindObjectsOfType<NavMeshNPCController>();
+        foreach (var n in navs)
+        {
+            if (n == null) continue;
+            var go = n.gameObject;
+            var agent = n.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            Vector3 pos = go.transform.position;
+            bool hasPos = true;
+
+            bool hasDest = false;
+            Vector3 dest = Vector3.zero;
+            bool wasStopped = false;
+
+            if (agent != null)
+            {
+                wasStopped = agent.isStopped;
+                if (agent.hasPath)
+                {
+                    hasDest = true;
+                    dest = agent.destination;
+                }
+            }
+
+            data.npcDestinations.Add(new NPCDestinationPair(go.name, pos, hasPos, dest, hasDest, wasStopped));
+        }
+
         // persist pickup/interacted sets
         data.collectedPickupIDs = new List<string>(collectedPickupIDs);
         data.interactedObjectIDs = new List<string>(interactedObjectIDs);
@@ -205,6 +234,8 @@ public class SaveLoadManager : MonoBehaviour
             // NEW: store NPC ID overrides to apply on next scene load
             pendingNpcIdOverrides = data.npcIdOverrides != null ? new List<NPCIdPair>(data.npcIdOverrides) : new List<NPCIdPair>();
             pendingNpcDialogueOverrides = data.npcDialogueOverrides != null ? new List<NPCDialoguePair>(data.npcDialogueOverrides) : new List<NPCDialoguePair>();
+            // NEW: store NPC destinations to apply on next scene load
+            pendingNpcDestinations = data.npcDestinations != null ? new List<NPCDestinationPair>(data.npcDestinations) : new List<NPCDestinationPair>();
 
             // NEW: store pending timeOfDay to apply after scene load
             if (data.timeOfDayHours >= 0f)
@@ -224,6 +255,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingTriggeredDialogueIDs = new List<string>();
             pendingNpcIdOverrides = new List<NPCIdPair>();
             pendingNpcDialogueOverrides = new List<NPCDialoguePair>();
+            pendingNpcDestinations = new List<NPCDestinationPair>();
             pendingTimeOfDay = float.NaN;
 
             // **** CRITICAL: clear collected/interacted sets so slot isolation holds ****
@@ -270,39 +302,72 @@ public class SaveLoadManager : MonoBehaviour
             return;
         }
 
+        // Delete persistent save file
         SaveSystem.Delete(slot);
-        Debug.Log($"Save slot {slot} has been cleared.");
+        Debug.Log($"Save slot {slot} has been cleared (file deleted).");
 
-        shouldResetInventoryAfterLoad = true; // Reset inventory on scene load
+        // Mark inventory to reset on next scene load and also attempt immediate reset
+        shouldResetInventoryAfterLoad = true;
 
-        // Clear collected pickup IDs
-        collectedPickupIDs.Clear();
-        interactedObjectIDs.Clear(); // ✅ Clear interacted objects
-
-        // Journal availability reset
-        pendingJournalAvailable = false;
-        if (JournalAvailability.Instance != null)
-            JournalAvailability.Instance.DisableJournal();
-
-        // NEW: clear triggered-dialogue list both in memory and on next scene load
-        pendingTriggeredDialogueIDs = new List<string>(); // empty means none triggered
-        if (DialogueEventsManager.Instance != null)
+        if (InventoryManager.Instance != null)
         {
-            DialogueEventsManager.Instance.ApplyTriggeredListFromSave(pendingTriggeredDialogueIDs); // immediately clear
+            InventoryManager.Instance.ResetInventory();
+            InventoryManager.Instance.inventoryUI = FindObjectOfType<InventoryUI>();
+            InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+            Debug.Log("[SaveLoadManager] InventoryManager reset immediately by ClearGame.");
         }
 
-        // NEW: clear NPC ID overrides for next load (so NPCs revert to prefab defaults after reload)
-        pendingNpcIdOverrides = new List<NPCIdPair>();
-        // We don't attempt to modify runtime NPC components here because the scene will be reloaded.
-        // After reload, OnSceneLoaded will apply pendingNpcIdOverrides (which is now empty), so defaults stay.
+        // Clear collected/interacted runtime sets
+        collectedPickupIDs.Clear();
+        interactedObjectIDs.Clear();
 
-        // Clear pending time of day and inventory
-        pendingTimeOfDay = float.NaN;
+        // Clear pending journal entries and availability (apply immediately if possible)
+        pendingJournalEntries = new List<JournalEntry>();
+        pendingJournalAvailable = false;
+        if (JournalAvailability.Instance != null)
+        {
+            JournalAvailability.Instance.DisableJournal();
+        }
+
+        if (JournalManager.Instance != null)
+        {
+            // Ensure JournalManager is cleared right away
+            JournalManager.Instance.LoadEntries(pendingJournalEntries);
+            Debug.Log("[SaveLoadManager] JournalManager cleared immediately by ClearGame.");
+        }
+
+        // Clear triggered-dialogue both in-memory and in DialogueEventsManager (if present)
+        pendingTriggeredDialogueIDs = new List<string>();
+        if (DialogueEventsManager.Instance != null)
+        {
+            DialogueEventsManager.Instance.ApplyTriggeredListFromSave(pendingTriggeredDialogueIDs);
+            Debug.Log("[SaveLoadManager] DialogueEventsManager triggered list cleared immediately by ClearGame.");
+        }
+
+        // Clear all NPC runtime overrides so NPCs revert to prefab/default behavior after reload
+        pendingNpcIdOverrides = new List<NPCIdPair>();
+        pendingNpcDialogueOverrides = new List<NPCDialoguePair>();
+        pendingNpcDestinations = new List<NPCDestinationPair>();
+
+        // Clear pending inventory data/equipped item
         pendingInventoryData = null;
         pendingEquippedItem = null;
 
-        LoadGame(slot); // Reload scene
+        // Clear pending time-of-day and any pending player position to apply
+        pendingTimeOfDay = float.NaN;
+        shouldApplyPosition = false;
+        positionToLoad = Vector3.zero;
+
+        // Reset current save slot state to default (optional: keep as slot)
+        currentSaveSlot = 1;
+
+        // If you store any other runtime state elsewhere, clear it here:
+        // e.g. any static registries, caches etc. that should be slot-isolated.
+
+        // Finally reload the scene (LoadGame will detect no saved file and perform a fresh load)
+        LoadGame(slot);
     }
+
     private IEnumerator ResetInventoryDelayed()
     {
         yield return null;
@@ -423,6 +488,61 @@ public class SaveLoadManager : MonoBehaviour
         if (pendingNpcDialogueOverrides != null && pendingNpcDialogueOverrides.Count > 0)
         {
             StartCoroutine(ApplyDialogueOverridesNextFrame());
+        }
+
+        // Apply pending NPC movement destinations saved earlier
+        if (pendingNpcDestinations != null && pendingNpcDestinations.Count > 0)
+        {
+            int applied = 0;
+            foreach (var pair in pendingNpcDestinations)
+            {
+                if (string.IsNullOrWhiteSpace(pair.gameObjectName)) continue;
+                GameObject go = GameObject.Find(pair.gameObjectName);
+                if (go == null) continue;
+
+                var nav = go.GetComponent<NavMeshNPCController>();
+                var agent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+                // 1) restore transform position (use Warp for agents)
+                if (pair.hasPosition && pair.position != null && pair.position.Length >= 3)
+                {
+                    Vector3 pos = new Vector3(pair.position[0], pair.position[1], pair.position[2]);
+
+                    if (agent != null)
+                    {
+                        // Warp ensures agent internal position aligns with transform without path recalculation issues
+                        agent.Warp(pos);
+                    }
+                    else
+                    {
+                        go.transform.position = pos;
+                    }
+                }
+
+                // 2) restore destination (recreate movement)
+                if (pair.hasDestination && pair.destination != null && pair.destination.Length >= 3)
+                {
+                    Vector3 dest = new Vector3(pair.destination[0], pair.destination[1], pair.destination[2]);
+
+                    // Use your controller API to resume movement so any patrol/state logic remains correct
+                    if (nav != null)
+                    {
+                        nav.MoveTo(dest);
+                    }
+                    else if (agent != null)
+                    {
+                        agent.SetDestination(dest);
+                    }
+
+                    // restore paused state if needed
+                    if (agent != null)
+                        agent.isStopped = pair.wasAgentStopped;
+                }
+
+                applied++;
+            }
+            Debug.Log($"[SaveLoadManager] Applied {applied} NPC positions/destinations from save.");
+            pendingNpcDestinations = null;
         }
 
         // Apply pending time of day if present

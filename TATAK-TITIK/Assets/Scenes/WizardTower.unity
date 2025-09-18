@@ -2008,15 +2008,15 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 522505203}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.46}
-  m_LocalScale: {x: 0.29504907, y: 0.29504907, z: 0.29504907}
+  m_LocalPosition: {x: 0, y: 0, z: 2.56}
+  m_LocalScale: {x: 0.24289325, y: 0.24289325, z: 0.24289325}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 189318082}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.72, y: 5.39}
+  m_AnchoredPosition: {x: 0.65, y: 3.7685}
   m_SizeDelta: {x: 20, y: 5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &524008121
@@ -8059,11 +8059,11 @@ MonoBehaviour:
   requiredNPCID2: Wizard2
   newNPCID2: Wizard3
   newWizardDialogueLines:
-  - To summon your journal, press J.
+  - To peruse your journal, press J.
   - This will allow you to write down what you think
   - the communities' words mean. Try it!
   newWizard3DialogueLines:
-  - Now, listen closely and remember.
+  - 'Your journal is automatic, so remember:'
   - When the words turn <color=#125699><b>blue</b></color>,
   - Your journal has something new.
   - When the words turn <color=#990000><b>red</b></color>,

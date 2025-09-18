@@ -473,4 +473,9 @@ public class NPCTracker : MonoBehaviour
 
         hideCoroutine = null;
     }
+
+    public void SetFloatingText(string text, bool showImmediately = false, float durationSeconds = 0f)
+    {
+        SetText(text, showImmediately, durationSeconds);
+    }
 }
