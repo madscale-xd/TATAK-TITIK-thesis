@@ -14,16 +14,18 @@ public class ItemInteractable : MonoBehaviour
     private Renderer[] renderers;
     private Color originalColor;
     private float transitionProgress = 0f;
-
+    [Header("Save ID (unique per scene)")]
+    [SerializeField] private string customInteractableID = "";
     private string interactableID;
 
     void Start()
     {
         // Generate a unique ID for saving interaction state
         interactableID = gameObject.scene.name + "_" + transform.position.ToString();
+        
 
         // Check if already interacted with
-         if (SaveLoadManager.Instance.IsObjectInteracted(interactableID))
+        if (SaveLoadManager.Instance.IsObjectInteracted(interactableID))
         {
             hasInteracted = true;
 
@@ -54,28 +56,35 @@ public class ItemInteractable : MonoBehaviour
     public void TryInteract()
     {
         if (hasInteracted) return;
-        SaveLoadManager.Instance.MarkObjectInteracted(interactableID);
-        // Check if player has and equipped the correct item
-        if (InventoryManager.Instance.equippedItem == requiredItem)
+
+        // Check if player has and equipped the correct item BEFORE marking anything as interacted.
+        if (InventoryManager.Instance != null && InventoryManager.Instance.equippedItem == requiredItem)
         {
             InventoryItem equipped = InventoryManager.Instance.items.Find(i => i.itemName == requiredItem && i.quantity > 0);
             if (equipped != null)
             {
+                // consume one
                 equipped.quantity--;
                 if (equipped.quantity <= 0)
                     InventoryManager.Instance.items.Remove(equipped);
 
                 InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+
+                // perform the interaction
                 PerformInteraction();
 
-                // ✅ Mark interaction as collected so it persists in the save
+                // ✅ Mark object as interacted (persist this only on success)
+                SaveLoadManager.Instance.MarkObjectInteracted(interactableID);
+
+                // persist pickup if you also treat it as a pickup
                 SaveLoadManager.Instance.MarkPickupCollected(interactableID);
+
+                return;
             }
         }
-        else
-        {
-            FloatingNotifier.Instance.ShowMessage($"You need a {requiredItem} to interact with {gameObject.name}.", Color.red);
-        }
+
+        // If we get here, player doesn't have the required item
+        FloatingNotifier.Instance.ShowMessage($"You need a {requiredItem} to interact with {gameObject.name}.", Color.red);
     }
 
     void PerformInteraction()

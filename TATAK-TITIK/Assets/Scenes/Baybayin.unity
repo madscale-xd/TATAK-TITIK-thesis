@@ -2176,7 +2176,7 @@ Light:
   m_Type: 1
   m_Shape: 0
   m_Color: {r: 0.9924528, g: 0.8522854, b: 0.47001058, a: 1}
-  m_Intensity: 1.2
+  m_Intensity: 0.6
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -2234,13 +2234,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 369109269}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.17364816, y: 0, z: 0, w: 0.9848078}
+  m_LocalRotation: {x: -0.3632057, y: -0.5792781, z: -0.2672898, w: 0.6790249}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1186661656}
-  m_LocalEulerAnglesHint: {x: 20, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -53.41, y: -83.736, z: 5.565}
 --- !u!114 &369109272
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9926,7 +9926,7 @@ MonoBehaviour:
   - "\u1703\u1703\u1701\u170A \u1700\u1705\u1714 \u1701\u170C\u1713\u1705\u1714 \u1703\u1710\u1713\u1702\u1706\u1708\u1714\u2026"
   - "\u1700! \u1700\u1705\u1714 \u1709\u1713\u170E \u1705\u1714 \u1701\u170C\u1713\u1705\u1714
     \u170B\u1713\u1703\u1714\u1711!"
-  - "\u1706\u170D, \u1707\u1707\u170E\u1714\u1711\u1712\u1708\u1714 \u1703\u1712\u1706
+  - "\u1706\u1707, \u1707\u1707\u170E\u1714\u1711\u1712\u1708\u1714 \u1703\u1712\u1706
     \u1710 <color=#990000><b>\u170A\u170A\u170C\u1714\u170E\u1708\u1714</b></color>!\r"
 --- !u!114 &1137600216
 MonoBehaviour:
@@ -10368,7 +10368,7 @@ MonoBehaviour:
   maxSunIntensity: 1.2
   maxMoonIntensity: 0.4
   dayAmbient: {r: 0.8, g: 0.8, b: 0.8, a: 1}
-  nightAmbient: {r: 0.2, g: 0.2, b: 0.3, a: 1}
+  nightAmbient: {r: 0.10861516, g: 0.10861516, b: 0.16981131, a: 1}
   dayFog: {r: 0.9, g: 0.9, b: 1, a: 1}
   nightFog: {r: 0.05, g: 0.05, b: 0.1, a: 1}
   daySkybox: {fileID: 2100000, guid: 9c4874f2352a1ba44ab2ac0ea818068c, type: 2}
@@ -10414,15 +10414,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1186661654}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.017417224, y: 0.81446123, z: 0.5423176, w: -0.20552666}
-  m_LocalPosition: {x: 340, y: 397.4, z: 0}
+  m_LocalRotation: {x: 0.11502244, y: -0.20517433, z: 0.31903845, w: -0.9180893}
+  m_LocalPosition: {x: 23.2, y: 468.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 369109271}
   - {fileID: 1601362951}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 297.057, y: -136.016, z: -745.321}
+  m_LocalEulerAnglesHint: {x: 355.395, y: -333.154, z: -399.424}
 --- !u!1 &1189569452 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4804357939978562660, guid: 2931aa5abc2487a44b5f0b5969e8e4d1, type: 3}
@@ -15026,8 +15026,8 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 0.1768814, g: 0.4187935, b: 0.6377357, a: 1}
-  m_Intensity: 1.5
+  m_Color: {r: 0.15465288, g: 0.47693342, b: 0.7660377, a: 1}
+  m_Intensity: 0.6
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -15036,7 +15036,7 @@ Light:
     m_Type: 1
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 1
+    m_Strength: 0.39
     m_Bias: 0.05
     m_NormalBias: 0.4
     m_NearPlane: 0.2
@@ -15307,10 +15307,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29d6724059d459c48be8b8368deb28e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  requiredItem: Torch
+  requiredItem: Toorchhh
   interactionPrompt: Press E to interact
   targetColor: {r: 1, g: 0, b: 0, a: 1}
   colorChangeSpeed: 0.5
+  customInteractableID: 
 --- !u!54 &1644019823
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -15896,9 +15897,41 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 218770589166157431, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 312775685563292456, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 596342606228336944, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 1680183050317377441, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2050432526253966286, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2134059982506143065, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
     - target: {fileID: 2137895619844177470, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
       propertyPath: m_Name
       value: CoconutTree
+      objectReference: {fileID: 0}
+    - target: {fileID: 2137895619844177470, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4443541305589243700, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 5045966961876280179, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
       propertyPath: m_LocalScale.x
@@ -15951,6 +15984,54 @@ PrefabInstance:
     - target: {fileID: 5045966961876280179, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5646492858591033397, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5888319819240360619, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6297886475953380784, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6530186569450613539, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6609425698301397168, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 6698642078274981875, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7081896157978240501, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 7980360835643279934, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 8609337602156862508, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 8734372972725284551, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 9108585809587786036, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 9145209543326376577, guid: a7cea72f33cb05649a7a718fbcde75df, type: 3}
+      propertyPath: m_Layer
+      value: 6
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -17050,7 +17131,7 @@ GameObject:
   - component: {fileID: 1849584091}
   - component: {fileID: 1849584090}
   - component: {fileID: 1849584093}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: CoconutTree (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
