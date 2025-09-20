@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using System;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class NavMeshNPCController : MonoBehaviour
@@ -15,6 +16,7 @@ public class NavMeshNPCController : MonoBehaviour
     [Header("Agent Settings")]
     public NavMeshAgent agent;
     [Tooltip("Considered 'arrived' when remainingDistance <= stoppingDistance + arriveThreshold (meters)")]
+    public event Action OnDestinationReached;
     public float arriveThreshold = 0.2f; // small tolerance (meters)
 
     [Header("Rotation / Look")]
@@ -93,6 +95,16 @@ public class NavMeshNPCController : MonoBehaviour
     {
         HandleRotation();
         HandleBounce();
+        if (agent == null) return;
+
+        if (!agent.pathPending && agent.remainingDistance <= arriveThreshold)
+        {
+            // ensure the agent actually stopped moving
+            if (!agent.hasPath || agent.velocity.sqrMagnitude < 0.01f)
+            {
+                OnDestinationReached?.Invoke();
+            }
+        }
     }
 
     // -------------------

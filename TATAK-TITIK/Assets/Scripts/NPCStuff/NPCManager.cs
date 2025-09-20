@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,6 +8,9 @@ using UnityEngine;
 /// </summary>
 public class NPCManager : MonoBehaviour
 {
+    private Queue<Vector3> destinationQueue = new Queue<Vector3>();
+    private bool processingDestinations = false;
+
     [Header("Core singletons / references")]
     [Tooltip("Optional: assign the DialogueEventsManager here. If left null, DialogueEventsManager.Instance will be used.")]
     public DialogueEventsManager dem;
@@ -186,5 +191,75 @@ public class NPCManager : MonoBehaviour
     public string GetNPCID()
     {
         return dialogueTrigger != null ? dialogueTrigger.GetNPCID() : "";
+    }
+
+    private void OnEnable()
+    {
+        if (navController != null)
+            navController.OnDestinationReached += HandleNavReached;
+    }
+
+    private void OnDisable()
+    {
+        if (navController != null)
+            navController.OnDestinationReached -= HandleNavReached;
+    }
+
+    // Public API: enqueue instead of overriding
+    public void EnqueueDestination(Vector3 worldPos)
+    {
+        destinationQueue.Enqueue(worldPos);
+        if (!processingDestinations)
+            StartCoroutine(ProcessDestinationQueue());
+    }
+
+    // Optional convenience to still immediately override:
+    public void SetDestination(Vector3 worldPos, bool queueInsteadOfOverride)
+    {
+        if (queueInsteadOfOverride)
+            EnqueueDestination(worldPos);
+        else
+            SetDestination(worldPos); // existing immediate behavior
+    }
+
+    private IEnumerator ProcessDestinationQueue()
+    {
+        processingDestinations = true;
+
+        while (destinationQueue.Count > 0)
+        {
+            Vector3 next = destinationQueue.Dequeue();
+
+            if (navController == null)
+                yield break;
+
+            // send the nav controller to the next point
+            navController.MoveTo(next);
+
+            // wait until navController raises the OnDestinationReached event
+            bool reached = false;
+            System.Action onReached = () => reached = true;
+            navController.OnDestinationReached += onReached;
+
+            // safety timeout (optional) to avoid forever waits
+            float timeout = 30f;
+            float elapsed = 0f;
+            while (!reached && elapsed < timeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            navController.OnDestinationReached -= onReached;
+            yield return null;
+        }
+
+        processingDestinations = false;
+    }
+    private void HandleNavReached()
+    {
+        // this is called whenever the nav controller reaches a destination.
+        // With the ProcessDestinationQueue coroutine waiting on a local delegate,
+        // you may not need to use this method. But it can be used for side-effects.
     }
 }
