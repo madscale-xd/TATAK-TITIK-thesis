@@ -117,17 +117,5 @@ public class ItemInteractable : MonoBehaviour
 
     void Update()
     {
-        if (hasInteracted && renderers != null)
-        {
-            transitionProgress += Time.deltaTime * colorChangeSpeed;
-            foreach (Renderer r in renderers)
-            {
-                if (r != null)
-                {
-                    Color lerpedColor = Color.Lerp(originalColor, targetColor, Mathf.Clamp01(transitionProgress));
-                    r.material.color = lerpedColor;
-                }
-            }
-        }
     }
 }

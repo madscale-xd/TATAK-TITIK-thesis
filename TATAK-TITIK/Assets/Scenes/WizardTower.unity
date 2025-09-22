@@ -8043,6 +8043,7 @@ MonoBehaviour:
   - Your journal has something new.
   - When the words turn <color=#990000><b>red</b></color>,
   - Review what the grimoire's said!
+  - The passage of time will guide your actions.
   - Now, go forth and assist me in this cause, Lingo!
   portalGameObject: {fileID: 865608179}
   portalPersistID: 

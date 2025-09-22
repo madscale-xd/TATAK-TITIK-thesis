@@ -61,6 +61,12 @@ public class KikoTask2Trigger : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        // If the global task is already done, don't do anything (prevents other beds from showing prompt)
+        if (baybayinManager != null && baybayinManager.IsTaskCompleted("task2"))
+        {
+            if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] Global task2 already completed — ignoring trigger.");
+            return;
+        }
         // already used and configured to only allow once -> do nothing
         if (hasTriggered && triggerOnce) return;
 
@@ -158,8 +164,5 @@ public class KikoTask2Trigger : MonoBehaviour
             itemPromptManager.HidePrompt();
 
         hasTriggered = true;
-
-        if (disableAfterTrigger)
-            gameObject.SetActive(false);
     }
 }

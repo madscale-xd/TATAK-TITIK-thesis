@@ -46,6 +46,7 @@ public class NPCDestinationPair
     // whether agent was stopped (optional, to restore pause state)
     public bool wasAgentStopped = false;
 
+
     public NPCDestinationPair() { }
 
     public NPCDestinationPair(string goName, Vector3 pos, bool hasPos, Vector3 dest, bool hasDest, bool stopped)
@@ -84,6 +85,10 @@ public class SaveData
     public List<NPCIdPair> npcIdOverrides = new List<NPCIdPair>();
     public List<NPCDialoguePair> npcDialogueOverrides = new List<NPCDialoguePair>();
     public List<NPCDestinationPair> npcDestinations = new List<NPCDestinationPair>();
+    
+    public List<string> completedTasks = new List<string>();
+    // NEW: track started/in-progress tasks for BaybayinManager
+    public List<string> startedTasks = new List<string>();
 
 
     // NEW: persisted time-of-day (in hours 0..24). -1 means not set / not saved.

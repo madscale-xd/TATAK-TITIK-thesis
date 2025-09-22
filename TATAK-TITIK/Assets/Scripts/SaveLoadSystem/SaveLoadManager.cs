@@ -35,7 +35,9 @@ public class SaveLoadManager : MonoBehaviour
     // NEW: pending inventory to apply after scene load
     private List<InventoryItemData> pendingInventoryData = null;
     private string pendingEquippedItem = null;
-    private string pendingBaybayinTaskCompleted = null;
+    private List<string> pendingBaybayinCompletedTasks = null;
+    private List<string> pendingBaybayinStartedTasks = null; // NEW
+
 
     private void Awake()
     {
@@ -186,15 +188,17 @@ public class SaveLoadManager : MonoBehaviour
             data.timeOfDayHours = -1f;
         }
 
-        // Persist BaybayinManager task completion (if present in the scene)
+        // Persist BaybayinManager completed tasks (if present in the scene)
         var bay = FindObjectOfType<BaybayinManager>();
         if (bay != null)
         {
-            data.baybayinTaskCompleted = bay.taskCompleted ?? "";
+            data.completedTasks = bay.GetCompletedTasks();
+            data.startedTasks = bay.GetStartedTasks(); // NEW
         }
         else
         {
-            data.baybayinTaskCompleted = "";
+            data.completedTasks = new List<string>();
+            data.startedTasks = new List<string>(); // NEW
         }
 
         SaveSystem.Save(data, slot);
@@ -250,7 +254,15 @@ public class SaveLoadManager : MonoBehaviour
             pendingNpcDestinations = data.npcDestinations != null ? new List<NPCDestinationPair>(data.npcDestinations) : new List<NPCDestinationPair>();
 
             // NEW: store Baybayin task completion to apply after scene load
-            pendingBaybayinTaskCompleted = !string.IsNullOrEmpty(data.baybayinTaskCompleted) ? data.baybayinTaskCompleted : null;
+            pendingBaybayinCompletedTasks = data.completedTasks != null && data.completedTasks.Count > 0
+                ? new List<string>(data.completedTasks)
+                : null;
+
+            // NEW: store Baybayin started (in-progress) tasks to apply after scene load
+            pendingBaybayinStartedTasks = data.startedTasks != null && data.startedTasks.Count > 0
+                ? new List<string>(data.startedTasks)
+                : null;
+
             // NEW: store pending timeOfDay to apply after scene load
             if (data.timeOfDayHours >= 0f)
                 pendingTimeOfDay = data.timeOfDayHours;
@@ -271,7 +283,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingNpcDialogueOverrides = new List<NPCDialoguePair>();
             pendingNpcDestinations = new List<NPCDestinationPair>();
             pendingTimeOfDay = float.NaN;
-            pendingBaybayinTaskCompleted = null;
+            pendingBaybayinCompletedTasks = null;
 
             // **** CRITICAL: clear collected/interacted sets so slot isolation holds ****
             collectedPickupIDs.Clear();
@@ -368,8 +380,8 @@ public class SaveLoadManager : MonoBehaviour
         // Clear pending inventory data/equipped item
         pendingInventoryData = null;
         pendingEquippedItem = null;
-        pendingBaybayinTaskCompleted = null;
-
+        pendingBaybayinCompletedTasks = new List<string>();
+        pendingBaybayinStartedTasks = new List<string>(); // NEW
         // Clear pending time-of-day and any pending player position to apply
         pendingTimeOfDay = float.NaN;
         shouldApplyPosition = false;
@@ -570,37 +582,43 @@ public class SaveLoadManager : MonoBehaviour
             pendingTimeOfDay = float.NaN;
         }
 
-        // Apply pending Baybayin task completion (if any)
-        if (!string.IsNullOrEmpty(pendingBaybayinTaskCompleted))
+        // Apply pending Baybayin completed tasks (if any)
+        if (pendingBaybayinCompletedTasks != null && pendingBaybayinCompletedTasks.Count > 0)
         {
             var bay = FindObjectOfType<BaybayinManager>();
             if (bay != null)
             {
-                // If the saved completion is "task1" we want to restore the runtime effects for Task1
-                // (BaybayinManager.MarkTask1Completed calls Task2, which updates NPCs).
-                if (pendingBaybayinTaskCompleted == "task1")
+                foreach (var t in pendingBaybayinCompletedTasks)
                 {
-                    // Avoid double-applying if it's already set
-                    if (bay.taskCompleted != "task1")
-                    {
-                        bay.MarkTask1Completed();
-                        Debug.Log("[SaveLoadManager] Applied saved Baybayin task1 completion and invoked MarkTask1Completed().");
-                    }
+                    if (string.IsNullOrWhiteSpace(t)) continue;
+                    bay.ApplyTaskEffects(t); // rehydrate completion
+                    if (!bay.IsTaskCompleted(t))
+                        bay.MarkTaskCompleted(t); // ensures internal set is consistent (ApplyTaskEffects also adds but safe)
                 }
-                else
-                {
-                    // Generic restore for unknown/other task names: set the field via public API
-                    bay.MarkTaskCompleted(pendingBaybayinTaskCompleted);
-                    Debug.Log($"[SaveLoadManager] Restored Baybayin taskCompleted = '{pendingBaybayinTaskCompleted}'.");
-                }
+                Debug.Log($"[SaveLoadManager] Applied {pendingBaybayinCompletedTasks.Count} Baybayin completed task(s) from save.");
             }
             else
             {
-                Debug.LogWarning("[SaveLoadManager] pendingBaybayinTaskCompleted present but BaybayinManager not found in scene.");
+                Debug.LogWarning("[SaveLoadManager] BaybayinManager not found when applying saved completed tasks.");
             }
 
-            // clear pending
-            pendingBaybayinTaskCompleted = null;
+            pendingBaybayinCompletedTasks = null;
+        }
+
+        // NEW: apply started/in-progress tasks
+        // After finding BaybayinManager:
+        if (pendingBaybayinStartedTasks != null && pendingBaybayinStartedTasks.Count > 0)
+        {
+            var bay = FindObjectOfType<BaybayinManager>();
+            if (bay != null)
+            {
+                // treat index 0 as the intended "current" started task
+                string started = pendingBaybayinStartedTasks[0];
+                if (!string.IsNullOrWhiteSpace(started))
+                    bay.MarkTaskStarted(started);
+                Debug.Log($"[SaveLoadManager] Applied started task '{started}' from save.");
+            }
+            pendingBaybayinStartedTasks = null;
         }
     }
 
@@ -687,6 +705,7 @@ public class SaveLoadManager : MonoBehaviour
 
         Debug.Log($"[SaveLoadManager] Player position applied (attempts={attempts + 1}). Final position: {playerTransform.position}");
     }
+    
     public void MarkPickupCollected(string pickupID)
     {
         collectedPickupIDs.Add(pickupID);
