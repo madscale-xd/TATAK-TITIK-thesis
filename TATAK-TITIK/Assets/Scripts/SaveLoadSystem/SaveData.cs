@@ -79,6 +79,8 @@ public class SaveData
     public List<string> triggeredDialogueIDs = new List<string>();
 
     public bool journalAvailable = false;
+
+    public string baybayinTaskCompleted = "";
     public List<NPCIdPair> npcIdOverrides = new List<NPCIdPair>();
     public List<NPCDialoguePair> npcDialogueOverrides = new List<NPCDialoguePair>();
     public List<NPCDestinationPair> npcDestinations = new List<NPCDestinationPair>();

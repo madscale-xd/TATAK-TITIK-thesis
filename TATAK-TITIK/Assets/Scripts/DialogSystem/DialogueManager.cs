@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
@@ -43,6 +44,15 @@ public class DialogueManager : MonoBehaviour
     [Header("Background (optional)")]
     [Tooltip("CanvasGroup used as a dim background behind the dialogue panel. Leave null to disable.")]
     public CanvasGroup dialogueBackgroundGroup;
+
+    // simple pending dialogue record + queue
+    private struct PendingDialogue
+    {
+        public GameObject npcObject;
+        public string npcID;
+        public PendingDialogue(GameObject obj, string id) { npcObject = obj; npcID = id; }
+    }
+    private Queue<PendingDialogue> dialogueQueue = new Queue<PendingDialogue>();
 
     void Start()
     {
@@ -212,6 +222,9 @@ public class DialogueManager : MonoBehaviour
         }
 
         isFading = false;
+
+        // try to play any queued dialogue
+        TryProcessNextQueuedDialogue();
     }
 
     private IEnumerator TransitionToDialogue()
@@ -439,5 +452,87 @@ public class DialogueManager : MonoBehaviour
                 CloseDialogue();
             }
         }
+    }
+
+    /// <summary>
+    /// Force-start dialogue for the given NPC GameObject. 
+    /// Pass the NPC's GameObject and the NPC ID string you want recorded in the DialogueEventsManager.
+    /// This will behave like the player pressed E: it sets up internal state and starts the dialogue UI.
+    /// </summary>
+    public void PlayDialogueFor(GameObject npcObject, string npcID)
+    {
+        if (npcObject == null)
+        {
+            Debug.LogWarning("[DialogueManager] PlayDialogueFor called with null npcObject.");
+            return;
+        }
+
+        // If dialogue is currently visible or we're in a fade transition, enqueue the request.
+        if (dialogueVisible || isFading)
+        {
+            dialogueQueue.Enqueue(new PendingDialogue(npcObject, npcID));
+            Debug.Log("[DialogueManager] PlayDialogueFor: dialogue busy — request enqueued.");
+            return;
+        }
+
+        // Try to find the NPCDialogueTrigger component
+        var trigger = npcObject.GetComponent<NPCDialogueTrigger>();
+        if (trigger == null)
+        {
+            Debug.LogWarning($"[DialogueManager] PlayDialogueFor: no NPCDialogueTrigger found on '{npcObject.name}'.");
+            return;
+        }
+
+        // If we're currently fading or showing a dialogue, clear/stop the previous state safely
+        ResetDialogueState();
+
+        // Set the current NPC so other parts of the system behave normally (prompt hiding, DEM, etc.)
+        currentNPC = trigger;
+
+        // Pull dialogue lines from the trigger
+        string[] lines = trigger.GetDialogueLines();
+        if (lines == null || lines.Length == 0)
+        {
+            Debug.LogWarning($"[DialogueManager] PlayDialogueFor: NPC '{npcObject.name}' has no dialogue lines.");
+            currentNPC = null;
+            return;
+        }
+
+        // Initialize dialogue state the same way StartDialogue does
+        currentDialogueLines = lines;
+        currentLineIndex = 0;
+        currentDialogue = currentDialogueLines[currentLineIndex];
+        dialogueVisible = true;
+
+        // Optionally mark the DialogueEventsManager with the provided npcID (so it counts as triggered)
+        if (!string.IsNullOrEmpty(npcID))
+        {
+            dialogueEventsManager?.AddToTriggeredList(npcID);
+        }
+
+        // --- NEW: If the NPC has a JournalTrigger, add its entries now (since the player didn't press E)
+        var journal = npcObject.GetComponent<JournalTrigger>() 
+                    ?? npcObject.GetComponentInChildren<JournalTrigger>(true);
+        if (journal != null)
+        {
+            journal.AddEntryToJournal();
+            Debug.Log($"[DialogueManager] PlayDialogueFor: Added journal entries from '{npcObject.name}'.");
+        }
+        // Kick off the UI transition (fades + typewriter) — reuses your existing coroutine
+        StartCoroutine(TransitionToDialogue());
+    }
+
+    private void TryProcessNextQueuedDialogue()
+    {
+        if (dialogueQueue.Count == 0) return;
+        var pd = dialogueQueue.Dequeue();
+        // Start next on the next frame to let UI settle
+        StartCoroutine(ProcessQueuedAfterFrame(pd));
+    }
+
+    private IEnumerator ProcessQueuedAfterFrame(PendingDialogue pd)
+    {
+        yield return null;
+        PlayDialogueFor(pd.npcObject, pd.npcID);
     }
 }

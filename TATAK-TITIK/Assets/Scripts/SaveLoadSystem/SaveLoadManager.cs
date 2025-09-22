@@ -35,6 +35,7 @@ public class SaveLoadManager : MonoBehaviour
     // NEW: pending inventory to apply after scene load
     private List<InventoryItemData> pendingInventoryData = null;
     private string pendingEquippedItem = null;
+    private string pendingBaybayinTaskCompleted = null;
 
     private void Awake()
     {
@@ -185,6 +186,17 @@ public class SaveLoadManager : MonoBehaviour
             data.timeOfDayHours = -1f;
         }
 
+        // Persist BaybayinManager task completion (if present in the scene)
+        var bay = FindObjectOfType<BaybayinManager>();
+        if (bay != null)
+        {
+            data.baybayinTaskCompleted = bay.taskCompleted ?? "";
+        }
+        else
+        {
+            data.baybayinTaskCompleted = "";
+        }
+
         SaveSystem.Save(data, slot);
         Debug.Log($"Game saved in slot {slot} at position {playerTransform.position}");
     }
@@ -237,6 +249,8 @@ public class SaveLoadManager : MonoBehaviour
             // NEW: store NPC destinations to apply on next scene load
             pendingNpcDestinations = data.npcDestinations != null ? new List<NPCDestinationPair>(data.npcDestinations) : new List<NPCDestinationPair>();
 
+            // NEW: store Baybayin task completion to apply after scene load
+            pendingBaybayinTaskCompleted = !string.IsNullOrEmpty(data.baybayinTaskCompleted) ? data.baybayinTaskCompleted : null;
             // NEW: store pending timeOfDay to apply after scene load
             if (data.timeOfDayHours >= 0f)
                 pendingTimeOfDay = data.timeOfDayHours;
@@ -257,6 +271,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingNpcDialogueOverrides = new List<NPCDialoguePair>();
             pendingNpcDestinations = new List<NPCDestinationPair>();
             pendingTimeOfDay = float.NaN;
+            pendingBaybayinTaskCompleted = null;
 
             // **** CRITICAL: clear collected/interacted sets so slot isolation holds ****
             collectedPickupIDs.Clear();
@@ -270,6 +285,7 @@ public class SaveLoadManager : MonoBehaviour
             pendingEquippedItem = null;
         }
         Time.timeScale = 1f;
+
 
         // safe load: only reference data if not null & savedSceneName not empty
         string defaultScene = "WizardTower";
@@ -352,6 +368,7 @@ public class SaveLoadManager : MonoBehaviour
         // Clear pending inventory data/equipped item
         pendingInventoryData = null;
         pendingEquippedItem = null;
+        pendingBaybayinTaskCompleted = null;
 
         // Clear pending time-of-day and any pending player position to apply
         pendingTimeOfDay = float.NaN;
@@ -551,6 +568,39 @@ public class SaveLoadManager : MonoBehaviour
             StartCoroutine(ApplyPendingTimeOfDayNextFrame(pendingTimeOfDay));
             // pendingTimeOfDay will be cleared by the coroutine (or you can set it to NaN now)
             pendingTimeOfDay = float.NaN;
+        }
+
+        // Apply pending Baybayin task completion (if any)
+        if (!string.IsNullOrEmpty(pendingBaybayinTaskCompleted))
+        {
+            var bay = FindObjectOfType<BaybayinManager>();
+            if (bay != null)
+            {
+                // If the saved completion is "task1" we want to restore the runtime effects for Task1
+                // (BaybayinManager.MarkTask1Completed calls Task2, which updates NPCs).
+                if (pendingBaybayinTaskCompleted == "task1")
+                {
+                    // Avoid double-applying if it's already set
+                    if (bay.taskCompleted != "task1")
+                    {
+                        bay.MarkTask1Completed();
+                        Debug.Log("[SaveLoadManager] Applied saved Baybayin task1 completion and invoked MarkTask1Completed().");
+                    }
+                }
+                else
+                {
+                    // Generic restore for unknown/other task names: set the field via public API
+                    bay.MarkTaskCompleted(pendingBaybayinTaskCompleted);
+                    Debug.Log($"[SaveLoadManager] Restored Baybayin taskCompleted = '{pendingBaybayinTaskCompleted}'.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[SaveLoadManager] pendingBaybayinTaskCompleted present but BaybayinManager not found in scene.");
+            }
+
+            // clear pending
+            pendingBaybayinTaskCompleted = null;
         }
     }
 

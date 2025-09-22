@@ -2,13 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+
 /// <summary>
 /// Per-NPC manager that centralizes common NPC operations for a single NPC instance.
 /// Assign the referenced components in the inspector (or let them be null and the manager will warn).
+/// NOTE: destination APIs now use Transform only (no Vector3 overloads).
 /// </summary>
 public class NPCManager : MonoBehaviour
 {
-    private Queue<Vector3> destinationQueue = new Queue<Vector3>();
+    private Queue<Transform> destinationQueue = new Queue<Transform>();
     private bool processingDestinations = false;
 
     [Header("Core singletons / references")]
@@ -36,18 +38,11 @@ public class NPCManager : MonoBehaviour
     }
 
     // -------------------------
-    // Movement / destination API
+    // Movement / destination API (TRANSFORM-ONLY)
     // -------------------------
-    public void SetDestination(Vector3 worldPos)
-    {
-        if (navController == null)
-        {
-            Debug.LogWarning($"[NPCManager:{name}] SetDestination called but navController is null.");
-            return;
-        }
-        navController.MoveTo(worldPos);
-    }
-
+    /// <summary>
+    /// Immediately set the NPC to move to the given Transform target.
+    /// </summary>
     public void SetDestination(Transform target)
     {
         if (navController == null)
@@ -61,6 +56,17 @@ public class NPCManager : MonoBehaviour
             return;
         }
         navController.MoveTo(target);
+    }
+
+    /// <summary>
+    /// Convenience: either enqueue the transform or immediately override current destination.
+    /// </summary>
+    public void SetDestination(Transform target, bool queueInsteadOfOverride)
+    {
+        if (queueInsteadOfOverride)
+            EnqueueDestination(target);
+        else
+            SetDestination(target);
     }
 
     public void StopMoving()
@@ -205,21 +211,18 @@ public class NPCManager : MonoBehaviour
             navController.OnDestinationReached -= HandleNavReached;
     }
 
-    // Public API: enqueue instead of overriding
-    public void EnqueueDestination(Vector3 worldPos)
+    // Public API: enqueue a Transform instead of overriding
+    public void EnqueueDestination(Transform target)
     {
-        destinationQueue.Enqueue(worldPos);
+        if (target == null)
+        {
+            Debug.LogWarning($"[NPCManager:{name}] EnqueueDestination called with null target. Ignoring.");
+            return;
+        }
+
+        destinationQueue.Enqueue(target);
         if (!processingDestinations)
             StartCoroutine(ProcessDestinationQueue());
-    }
-
-    // Optional convenience to still immediately override:
-    public void SetDestination(Vector3 worldPos, bool queueInsteadOfOverride)
-    {
-        if (queueInsteadOfOverride)
-            EnqueueDestination(worldPos);
-        else
-            SetDestination(worldPos); // existing immediate behavior
     }
 
     private IEnumerator ProcessDestinationQueue()
@@ -228,12 +231,22 @@ public class NPCManager : MonoBehaviour
 
         while (destinationQueue.Count > 0)
         {
-            Vector3 next = destinationQueue.Dequeue();
+            Transform next = destinationQueue.Dequeue();
 
             if (navController == null)
+            {
+                Debug.LogWarning($"[NPCManager:{name}] ProcessDestinationQueue aborted: navController is null.");
                 yield break;
+            }
 
-            // send the nav controller to the next point
+            if (next == null)
+            {
+                Debug.LogWarning($"[NPCManager:{name}] Skipping null Transform in destination queue.");
+                yield return null;
+                continue;
+            }
+
+            // send the nav controller to the next transform
             navController.MoveTo(next);
 
             // wait until navController raises the OnDestinationReached event
@@ -241,7 +254,7 @@ public class NPCManager : MonoBehaviour
             System.Action onReached = () => reached = true;
             navController.OnDestinationReached += onReached;
 
-            // safety timeout (optional) to avoid forever waits
+            // safety timeout to avoid forever waits
             float timeout = 30f;
             float elapsed = 0f;
             while (!reached && elapsed < timeout)
@@ -256,10 +269,45 @@ public class NPCManager : MonoBehaviour
 
         processingDestinations = false;
     }
+
     private void HandleNavReached()
     {
         // this is called whenever the nav controller reaches a destination.
         // With the ProcessDestinationQueue coroutine waiting on a local delegate,
         // you may not need to use this method. But it can be used for side-effects.
     }
+
+    /// <summary>
+    /// Ask the scene DialogueManager to play this NPC's dialogue using this NPC's registered NPC ID.
+    /// </summary>
+    public void PlayDialogue()
+    {
+        PlayDialogue(GetNPCID());
+    }
+
+    /// <summary>
+    /// Ask the scene DialogueManager to play dialogue for this NPC object.
+    /// If overrideNpcID is null/empty the method will use dialogueTrigger.GetNPCID() (if present).
+    /// </summary>
+    public void PlayDialogue(string overrideNpcID)
+    {
+        var dm = FindObjectOfType<DialogueManager>();
+        if (dm == null)
+        {
+            Debug.LogWarning($"[NPCManager:{name}] PlayDialogue called but no DialogueManager found in scene.");
+            return;
+        }
+
+        string idToUse = overrideNpcID;
+        if (string.IsNullOrWhiteSpace(idToUse))
+            idToUse = dialogueTrigger != null ? dialogueTrigger.GetNPCID() : "";
+
+        if (string.IsNullOrWhiteSpace(idToUse))
+        {
+            Debug.LogWarning($"[NPCManager:{name}] PlayDialogue: no NPC ID available to record in DialogueEventsManager.");
+        }
+
+        dm.PlayDialogueFor(this.gameObject, idToUse);
+    }
+
 }

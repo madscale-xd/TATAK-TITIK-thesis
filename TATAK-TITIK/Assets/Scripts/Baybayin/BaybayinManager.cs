@@ -4,11 +4,12 @@ using UnityEngine.Events;
 
 public class BaybayinManager : MonoBehaviour
 {
-    [Header("Assign the NPC manager for Kiko (the NPC who speaks)")]
+    [Header("Assign the NPC manager for the NPCs")]
     public NPCManager Kiko;
+    public NPCManager Babaylan;
 
-    [Header("Where should Kiko walk after finishing dialogue?")]
-    [Tooltip("World-space Transform destination for Kiko.")]
+    [Header("Optional: final move target (not required)")]
+    [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
     public Transform moveTarget;
 
     [Header("Optional: Only respond to a specific NPC ID when using OnDialogueFinished(string)")]
@@ -20,9 +21,49 @@ public class BaybayinManager : MonoBehaviour
 
     // cached DialogueEventsManager reference used for subscribing/unsubscribing
     private DialogueEventsManager demRef;
+    [SerializeField] private DayNightCycle DNC;
+
+    [Header("Task1 (explicit) settings")]
+    [Tooltip("The NPC ID that triggers Task1. Example: \"Kiko1\". If empty Task1 won't auto-start from DEM.")]
+    public string task1TriggerNPCID = "Kiko1";
+
+    [Tooltip("If true, Task1 will run only once after the trigger. If false, it will run every matching trigger.")]
+    public bool task1RunOnlyOnce = true;
+
+    [Tooltip("If true Task1 is enabled; set false to disable Task1 without removing the script.")]
+    public bool task1Enabled = true;
+    private string pendingTask2KikoID = null;
+
+    // internal tracking
+    [HideInInspector] public string taskCompleted = "";
+    private bool task1HasRun = false;
+
+    [Header("Waypoints (used by all tasks)")]
+    public Transform[] waypoints;
+
+    [Header("New Lines")]
+    public string[] Kiko2Lines = new string[] {
+        ""
+    };
+    public string[] Babaylan2Lines = new string[] {
+        ""
+    };
+    public string[] Kiko3Lines = new string[] {
+        ""
+    };
+    public string[] Babaylan4Lines = new string[] {
+        ""
+    };
+
+    [Header("New Journal Entries")]
+    JournalTriggerEntry[] KikoJournal4 = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "doon", displayWord = "ᜇᜓᜂᜈ᜔"},
+        new JournalTriggerEntry { key = "puno", displayWord = "ᜉᜓᜈᜓ"}
+    };
 
     private void OnEnable()
     {
+        DNC.SetTimeOfDay(22f, 2f);
         // Prefer singleton instance; fall back to scene search if instance not yet set
         demRef = DialogueEventsManager.Instance;
         if (demRef == null)
@@ -35,14 +76,12 @@ public class BaybayinManager : MonoBehaviour
         else
         {
             Debug.LogWarning("[BaybayinManager] DialogueEventsManager not found. Will attempt to subscribe when it appears.");
-            // We'll attempt to find & subscribe in Update if it was missing (optional)
             StartCoroutine(DeferredSubscribe());
         }
     }
 
     private IEnumerator DeferredSubscribe()
     {
-        // try a few frames to find the DEM if it's created after this manager
         int tries = 0;
         while (demRef == null && tries < 30)
         {
@@ -76,8 +115,7 @@ public class BaybayinManager : MonoBehaviour
     // Event handler for DialogueEventsManager.OnTriggeredAdded
     private void HandleTriggeredAdded(string npcID)
     {
-        // Run the same logic as OnDialogueFinished(npcID)
-        // If requireIdMatch is true, compare against Kiko's dialogueTrigger id
+        // If requireIdMatch is true, compare against Kiko's dialogueTrigger id (existing behavior)
         if (Kiko == null)
         {
             Debug.LogWarning("[BaybayinManager] HandleTriggeredAdded called but Kiko is not assigned.");
@@ -100,21 +138,16 @@ public class BaybayinManager : MonoBehaviour
             }
         }
 
-        // If we reach here: either requireIdMatch==false (respond to any), or npcID matches Kiko
-        MoveKikoToTarget();
-    }
-
-    // -----------------------
-    // Public API - Call these when dialogue finishes
-    // -----------------------
-
-    /// <summary>
-    /// Call this directly when Kiko's dialogue finishes.
-    /// Example: have your dialogue finish callback call BaybayinManagerInstance.OnKikoDialogueFinished().
-    /// </summary>
-    public void OnKikoDialogueFinished()
-    {
-        MoveKikoToTarget();
+        // At this point the incoming npcID passed the Kiko check (or requireIdMatch is false).
+        // Now check Task1's trigger and run Task1 only if it matches and Task1 hasn't already run (depending on settings).
+        TryStartTask1ForTrigger(npcID);
+        // If we are waiting for Kiko's new dialogue to be triggered, detect it here and start Task2.
+        if (!string.IsNullOrWhiteSpace(pendingTask2KikoID) && string.Equals(pendingTask2KikoID, npcID))
+        {
+            pendingTask2KikoID = null; // consume the pending flag
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' (Kiko new dialogue). Starting Task2.");
+            Task2();
+        }
     }
 
     /// <summary>
@@ -132,7 +165,6 @@ public class BaybayinManager : MonoBehaviour
 
         if (requireIdMatch)
         {
-            // try to compare with the id stored on Kiko's dialogueTrigger (if available)
             var trigger = Kiko.dialogueTrigger;
             if (trigger == null)
             {
@@ -147,32 +179,167 @@ public class BaybayinManager : MonoBehaviour
             }
         }
 
-        MoveKikoToTarget();
+        TryStartTask1ForTrigger(npcID);
+        // after TryStartTask1ForTrigger(npcID);
+        if (!string.IsNullOrWhiteSpace(pendingTask2KikoID) && string.Equals(pendingTask2KikoID, npcID))
+        {
+            pendingTask2KikoID = null;
+            Debug.Log($"[BaybayinManager] OnDialogueFinished detected '{npcID}' (Kiko new dialogue). Starting Task2.");
+            Task2();
+        }
+    }
+
+    /// <summary>
+    /// Mark a named task as completed. BaybayinManager knows about "task1" in your case.
+    /// This is public so external triggers (waypoints) can notify completion.
+    /// </summary>
+    public void MarkTaskCompleted(string taskName)
+    {
+        if (string.IsNullOrWhiteSpace(taskName)) return;
+
+        // only handle "task1" for now (extend with switch/case if you add more tasks)
+        if (taskName == "task1")
+        {
+            if (taskCompleted == "task1")
+            {
+                Debug.Log("[BaybayinManager] MarkTaskCompleted: task1 already marked completed.");
+                return;
+            }
+
+            taskCompleted = "task1";
+            if (task1RunOnlyOnce) task1HasRun = true;
+            Debug.Log("[BaybayinManager] MarkTaskCompleted: task1 marked completed (via external trigger).");
+        }
+        else
+        {
+            Debug.LogWarning($"[BaybayinManager] MarkTaskCompleted: unknown taskName '{taskName}'.");
+        }
+    }
+
+    public void MarkTask1Completed()
+    {
+        MarkTaskCompleted("task1");
+
+        // Change Kiko ID and update lines immediately
+        Kiko.ChangeNPCID("Kiko2", false);
+        Kiko.SetDialogueLines(Kiko2Lines);
+
+        // Instead of starting Task2 now, wait until the player actually talks to Kiko (Kiko2).
+        // Store the new npcID so we can start Task2 when DialogueEventsManager reports it triggered.
+        var newId = Kiko.GetNPCID();
+        if (!string.IsNullOrWhiteSpace(newId))
+        {
+            pendingTask2KikoID = newId;
+            Debug.Log($"[BaybayinManager] Task1 completed — waiting for dialogue for '{newId}' to start Task2.");
+        }
+        else
+        {
+            // Fallback: if for some reason ID isn't available, start immediately
+            Debug.LogWarning("[BaybayinManager] MarkTask1Completed: Kiko.GetNPCID() returned empty. Starting Task2 immediately as fallback.");
+            Task2();
+        }
     }
 
     // -----------------------
-    // Internal
+    // Task1 control
     // -----------------------
-    void MoveKikoToTarget()
+    private void TryStartTask1ForTrigger(string incomingNpcID)
     {
+        if (!task1Enabled)
+            return;
+
+        // If Task1 has a configured trigger NPC id, ensure it matches (if non-empty).
+        if (!string.IsNullOrEmpty(task1TriggerNPCID) && !string.Equals(task1TriggerNPCID, incomingNpcID))
+        {
+            // not the task1 trigger
+            return;
+        }
+
+        // Respect run-once semantics
+        if (task1RunOnlyOnce && task1HasRun)
+        {
+            Debug.Log("[BaybayinManager] Task1 trigger received but Task1 already ran and is configured to run only once. Ignoring.");
+            return;
+        }
+
+        // Start Task1
+        Task1();
+    }
+
+    /// <summary>
+    /// The explicit Task1 movement. Only started by TryStartTask1ForTrigger above.
+    /// Enqueues waypoints 0,1,5 (skips out-of-range/null). moveTarget is optional and enqueued last if assigned.
+    /// </summary>
+    void Task1()
+    {
+        DNC.SetTimeOfDay(23f, 20f);
         if (Kiko == null)
         {
-            Debug.LogWarning("[BaybayinManager] MoveKikoToTarget: Kiko (NPCManager) is not assigned.");
+            Debug.LogWarning("[BaybayinManager] Task1: Kiko (NPCManager) is not assigned.");
             return;
         }
 
-        if (moveTarget == null)
+        if (waypoints == null || waypoints.Length == 0)
         {
-            Debug.LogWarning("[BaybayinManager] MoveKikoToTarget: moveTarget is not assigned in the inspector.");
+            Debug.LogWarning("[BaybayinManager] Task1: waypoints array is empty. Nothing to enqueue.");
             return;
         }
 
-        // use NPCManager API to command movement
-        Kiko.SetDestination(moveTarget);
+        // explicit desired indices: 0,1,5
+        int[] desiredIndices = new int[] { 1, 5 };
+
+        int enqueued = 0;
+        foreach (int i in desiredIndices)
+        {
+            if (i < 0 || i >= waypoints.Length)
+            {
+                Debug.LogWarning($"[BaybayinManager] Task1: waypoint index {i} is out of range (waypoints.Length={waypoints.Length}). Skipping.");
+                continue;
+            }
+
+            if (waypoints[i] == null)
+            {
+                Debug.LogWarning($"[BaybayinManager] Task1: waypoint[{i}] is null. Skipping.");
+                continue;
+            }
+
+            Kiko.EnqueueDestination(waypoints[i]);
+            enqueued++;
+        }
+
+        // If the user did assign an explicit moveTarget, enqueue it after the waypoints (optional).
+        if (moveTarget != null)
+        {
+            Kiko.EnqueueDestination(moveTarget);
+            Debug.Log($"[BaybayinManager] Task1: moveTarget '{moveTarget.name}' enqueued after waypoints.");
+        }
+        else
+        {
+            Debug.Log($"[BaybayinManager] Task1: Enqueued {enqueued} waypoint(s) (indices 0,1,5 as available). No moveTarget assigned — done.");
+        }
 
         // invoke inspector hook if desired
         onMoved?.Invoke();
 
-        Debug.Log($"[BaybayinManager] Told '{Kiko.name}' to move to '{moveTarget.name}' ({moveTarget.position}).");
+        // mark as run if configured to only run once
+        if (task1RunOnlyOnce)
+            task1HasRun = true;
+    }
+
+    /// <summary>
+    /// Public helper: reset Task1 so it can run again (useful for testing or replay).
+    /// </summary>
+    public void ResetTask1()
+    {
+        task1HasRun = false;
+        if (taskCompleted == "task1") taskCompleted = "";
+        Debug.Log("[BaybayinManager] Task1 has been reset and can run again.");
+    }
+
+    void Task2()
+    {
+        Babaylan.SetDestination(waypoints[13]);
+        Babaylan.PlayDialogue("BABAYLAN");
+        Babaylan.ChangeNPCID("Babaylan2", false);
     }
 }
