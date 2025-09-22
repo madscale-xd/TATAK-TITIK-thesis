@@ -1,12 +1,16 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using System;
 
 public class BaybayinManager : MonoBehaviour
 {
     [Header("Assign the NPC manager for the NPCs")]
     public NPCManager Kiko;
+    public Transform KikoTransform;
+    public Transform playerTransform;
     public NPCManager Babaylan;
+    public Transform BabaylanTransform;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -42,6 +46,7 @@ public class BaybayinManager : MonoBehaviour
     public Transform[] waypoints;
 
     [Header("New Lines")]
+    //Act1
     public string[] Kiko2Lines = new string[] {
         ""
     };
@@ -51,14 +56,40 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko3Lines = new string[] {
         ""
     };
+    public string[] Babaylan3Lines = new string[] {
+        ""
+    };
+    public string[] Kiko4Lines = new string[] {
+        ""
+    };
     public string[] Babaylan4Lines = new string[] {
+        ""
+    };
+    public string[] Kiko5Lines = new string[] {
+        ""
+    };
+    //Act2
+    public string[] Babaylan5Lines = new string[] {
         ""
     };
 
     [Header("New Journal Entries")]
-    JournalTriggerEntry[] KikoJournal4 = new JournalTriggerEntry[]{
+    JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "Mayohan", displayWord = "ᜋᜌᜓᜑᜈ᜔"}
+    };
+    JournalTriggerEntry[] Kiko4Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "doon", displayWord = "ᜇᜓᜂᜈ᜔"},
         new JournalTriggerEntry { key = "puno", displayWord = "ᜉᜓᜈᜓ"}
+    };
+    JournalTriggerEntry[] Babaylan3Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "mainit", displayWord = "ᜋᜁᜈᜒᜆ᜔"},
+        new JournalTriggerEntry { key = "bigas", displayWord = "ᜊᜒᜄᜐ᜔"}
+    };
+    JournalTriggerEntry[] Kiko5Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "kaibigan", displayWord = "ᜃᜁᜊᜒᜄᜈ᜔"} };
+    JournalTriggerEntry[] Babaylan4Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "tulog", displayWord = "ᜆᜓᜎᜓᜄ᜔"},
+        new JournalTriggerEntry { key = "bukas", displayWord = "ᜊᜓᜃᜐ᜔"}
     };
 
     private void OnEnable()
@@ -240,6 +271,46 @@ public class BaybayinManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Called when the player uses the bed (Task2 completes).
+    /// Centralizes post-sleep logic: marks the task as completed and advances the day/time.
+    /// </summary>
+    public void MarkTask2Completed()
+    {
+        // prevent double-execution
+        if (taskCompleted == "task2")
+        {
+            Debug.Log("[BaybayinManager] MarkTask2Completed: already completed, ignoring.");
+            return;
+        }
+
+        // mark done
+        taskCompleted = "task2";
+        Debug.Log("[BaybayinManager] MarkTask2Completed: task2 marked completed.");
+
+        // If you have a 'run once' semantic for task2 you can set a flag here similar to task1HasRun.
+        // (If you add bool task2HasRun; to the class, uncomment the next line)
+        // task2HasRun = true;
+
+        // Advance to morning via DayNightCycle (safe null-check)
+        if (DNC != null)
+        {
+            try
+            {
+                DNC.SetTimeOfDay(8f, 10f);
+                Debug.Log("[BaybayinManager] MarkTask2Completed: advanced time to morning (8:00).");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[BaybayinManager] MarkTask2Completed: exception calling DNC.SetTimeOfDay: {ex}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[BaybayinManager] MarkTask2Completed: DayNightCycle (DNC) reference is null; cannot advance time.");
+        }
+    }
+
     // -----------------------
     // Task1 control
     // -----------------------
@@ -338,8 +409,44 @@ public class BaybayinManager : MonoBehaviour
 
     void Task2()
     {
-        Babaylan.SetDestination(waypoints[13]);
+        Kiko.PlayDialogue("KIKO");
+        Kiko.ChangeNPCID("Kiko3", false);
+        Kiko.SetDialogueLines(Kiko3Lines);
+
+        Babaylan.AddJournalEntries();
+        Babaylan.EnqueueDestination(waypoints[13]);
         Babaylan.PlayDialogue("BABAYLAN");
         Babaylan.ChangeNPCID("Babaylan2", false);
+        Babaylan.SetDialogueLines(Babaylan2Lines);
+        Babaylan.LockRotationToTarget(KikoTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+
+        Kiko.PlayDialogue("KIKO");
+        Kiko.LockRotationToTarget(BabaylanTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+        Kiko.ChangeNPCID("Kiko4", false);
+        Kiko.SetDialogueLines(Kiko4Lines);
+
+        Babaylan.LockRotationToTarget(playerTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+        Babaylan.SetJournalEntries(Babaylan2Journal);
+        Babaylan.PlayDialogue("BABAYLAN", Babaylan2Lines, Babaylan2Journal);
+        Babaylan.ChangeNPCID("Babaylan3", false);
+        Babaylan.SetDialogueLines(Babaylan3Lines);
+
+        Kiko.SetJournalEntries(Kiko4Journal);
+        Kiko.PlayDialogue("KIKO", Kiko4Lines, Kiko4Journal);
+        Kiko.ChangeNPCID("Kiko5", false);
+        Kiko.SetDialogueLines(Kiko5Lines);
+
+        Babaylan.EnqueueDestination(waypoints[14]);
+        Babaylan.SetJournalEntries(Babaylan3Journal);
+        Babaylan.PlayDialogue("BABAYLAN", Babaylan3Lines, Babaylan3Journal);
+        Babaylan.ChangeNPCID("Babaylan4", false);
+        Babaylan.SetDialogueLines(Babaylan4Lines);
+
+        Kiko.LockRotationToTarget(playerTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+        Kiko.SetJournalEntries(Kiko5Journal);
+        Kiko.PlayDialogue("KIKO",Kiko5Lines, Kiko5Journal);
+
+        Babaylan.SetJournalEntries(Babaylan4Journal);
+        Babaylan.PlayDialogue("BABAYLAN", Babaylan4Lines, Babaylan4Journal);
     }
 }

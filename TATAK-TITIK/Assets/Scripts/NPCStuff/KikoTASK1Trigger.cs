@@ -10,7 +10,7 @@ using UnityEngine.Events;
 /// - triggerOnce makes it a one-time activation.
 /// </summary>
 [RequireComponent(typeof(Collider))]
-public class WaypointTrigger : MonoBehaviour
+public class KikoTask1Trigger : MonoBehaviour
 {
     [Tooltip("If assigned, only this NPCManager instance will trigger the waypoint.")]
     public NPCManager targetNPC;

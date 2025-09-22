@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 
 /// <summary>
@@ -12,6 +13,15 @@ public class NPCManager : MonoBehaviour
 {
     private Queue<Transform> destinationQueue = new Queue<Transform>();
     private bool processingDestinations = false;
+    // add near the other fields
+    private Coroutine rotateCoroutine = null;
+    // Rotation lock state (add near other private fields)
+    private bool rotationLocked = false;
+    private Transform rotationLockTarget = null;
+    private bool rotationLockOnlyYAxis = true;
+    private float lockRotationSpeed = 720f; // deg/sec used when smoothing toward locked rotation
+    private float savedNavRotationSpeed = float.NaN;
+    private bool hasSavedNavRotationSpeed = false;
 
     [Header("Core singletons / references")]
     [Tooltip("Optional: assign the DialogueEventsManager here. If left null, DialogueEventsManager.Instance will be used.")]
@@ -37,6 +47,24 @@ public class NPCManager : MonoBehaviour
             dem = DialogueEventsManager.Instance;
     }
 
+    // enforce the locked rotation every frame while rotationLocked is true
+    private void LateUpdate()
+    {
+        if (!rotationLocked || rotationLockTarget == null) return;
+
+        // choose which transform to rotate (same fallback logic you used elsewhere)
+        Transform modelVisual = (navController != null && navController.modelRoot != null) ? navController.modelRoot : this.transform;
+
+        Vector3 dir = rotationLockTarget.position - modelVisual.position;
+        if (rotationLockOnlyYAxis) dir.y = 0f;
+        if (dir.sqrMagnitude <= 1e-6f) return;
+
+        Quaternion desired = Quaternion.LookRotation(dir.normalized, Vector3.up);
+
+        // smooth toward desired rotation using lockRotationSpeed; use RotateTowards for stable deg/sec
+        float step = lockRotationSpeed * Time.deltaTime;
+        modelVisual.rotation = Quaternion.RotateTowards(modelVisual.rotation, desired, step);
+    }
     // -------------------------
     // Movement / destination API (TRANSFORM-ONLY)
     // -------------------------
@@ -277,8 +305,8 @@ public class NPCManager : MonoBehaviour
         // you may not need to use this method. But it can be used for side-effects.
     }
 
-    /// <summary>
     /// Ask the scene DialogueManager to play this NPC's dialogue using this NPC's registered NPC ID.
+    /// (Wrapper that uses the snapshot behavior implemented below.)
     /// </summary>
     public void PlayDialogue()
     {
@@ -287,7 +315,8 @@ public class NPCManager : MonoBehaviour
 
     /// <summary>
     /// Ask the scene DialogueManager to play dialogue for this NPC object.
-    /// If overrideNpcID is null/empty the method will use dialogueTrigger.GetNPCID() (if present).
+    /// This snapshots the NPCDialogueTrigger's current lines at enqueue time and enqueues them
+    /// via DialogueManager.PlayDialogueFor(GameObject,string,string[],JournalTriggerEntry[]).
     /// </summary>
     public void PlayDialogue(string overrideNpcID)
     {
@@ -307,7 +336,166 @@ public class NPCManager : MonoBehaviour
             Debug.LogWarning($"[NPCManager:{name}] PlayDialogue: no NPC ID available to record in DialogueEventsManager.");
         }
 
-        dm.PlayDialogueFor(this.gameObject, idToUse);
+        // Snapshot lines now so queued items preserve the content even if SetDialogueLines is called later.
+        string[] linesSnapshot = null;
+        if (dialogueTrigger != null)
+        {
+            var triggerLines = dialogueTrigger.GetDialogueLines();
+            if (triggerLines != null)
+                linesSnapshot = (string[])triggerLines.Clone();
+        }
+
+        // We don't automatically snapshot journal entries here because NPCManager doesn't expose a getter.
+        // If you want journals enqueued with the dialogue, use the overload below that accepts explicit journal entries.
+        dm.PlayDialogueFor(this.gameObject, idToUse, linesSnapshot, null);
     }
 
+    /// <summary>
+    /// Enqueue dialogue for this NPC with explicit lines and optional journal entries.
+    /// Use this when you already have the exact lines and/or journal entries you want queued.
+    /// </summary>
+    public void PlayDialogue(string overrideNpcID, string[] explicitLines, JournalTriggerEntry[] explicitJournalEntries)
+    {
+        var dm = FindObjectOfType<DialogueManager>();
+        if (dm == null)
+        {
+            Debug.LogWarning($"[NPCManager:{name}] PlayDialogue(lines+journals) called but no DialogueManager found in scene.");
+            return;
+        }
+
+        string idToUse = overrideNpcID;
+        if (string.IsNullOrWhiteSpace(idToUse))
+            idToUse = dialogueTrigger != null ? dialogueTrigger.GetNPCID() : "";
+
+        // Clone snapshots to prevent external mutation before queue processing
+        string[] linesSnapshot = explicitLines != null ? (string[])explicitLines.Clone() : null;
+        JournalTriggerEntry[] journalSnapshot = explicitJournalEntries != null ? (JournalTriggerEntry[])explicitJournalEntries.Clone() : null;
+
+        dm.PlayDialogueFor(this.gameObject, idToUse, linesSnapshot, journalSnapshot);
+    }
+
+
+    /// <summary>
+    /// Lock model rotation to face `target`. The lock persists until ReleaseRotationLock() is called.
+    /// - snap: true -> immediately set rotation (no smoothing)
+    /// - preventControllerOverride: if true, temporarily sets navController.rotationSpeed = 0 (saved/restored)
+    /// - smoothSpeed: degrees/sec used for smoothing while locked (ignored if snap==true)
+    /// </summary>
+    public void LockRotationToTarget(Transform target, bool onlyYAxis = true, bool snap = true, bool preventControllerOverride = true, float smoothSpeed = 720f)
+    {
+        if (target == null) return;
+
+        rotationLockTarget = target;
+        rotationLockOnlyYAxis = onlyYAxis;
+        lockRotationSpeed = Mathf.Max(0.0001f, smoothSpeed);
+        rotationLocked = true;
+
+        // optionally stop navController from rotating the model (safer than disabling the whole controller)
+        if (preventControllerOverride && navController != null)
+        {
+            if (!hasSavedNavRotationSpeed)
+            {
+                savedNavRotationSpeed = navController.rotationSpeed;
+                hasSavedNavRotationSpeed = true;
+            }
+            navController.rotationSpeed = 0f;
+        }
+
+        // if snap, immediately set the rotation once (LateUpdate will maintain afterward)
+        if (snap)
+        {
+            Transform modelVisual = (navController != null && navController.modelRoot != null) ? navController.modelRoot : this.transform;
+            Vector3 dir = target.position - modelVisual.position;
+            if (onlyYAxis) dir.y = 0f;
+            if (dir.sqrMagnitude > 1e-6f)
+                modelVisual.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        }
+    }
+
+    /// <summary>
+    /// Release any locked rotation, optionally restoring the navController.rotationSpeed.
+    /// </summary>
+    public void ReleaseRotationLock(bool restoreControllerRotation = true)
+    {
+        rotationLocked = false;
+        rotationLockTarget = null;
+
+        if (restoreControllerRotation && navController != null && hasSavedNavRotationSpeed)
+        {
+            navController.rotationSpeed = savedNavRotationSpeed;
+            savedNavRotationSpeed = float.NaN;
+            hasSavedNavRotationSpeed = false;
+        }
+    }
+
+
+    /// <summary>
+    /// Rotate a model transform once to face a target (one-time call).
+    /// If modelVisual is null we try navController.modelRoot then this.transform.
+    /// If instant==true the rotation snaps; otherwise it smoothly rotates at rotationSpeed (deg/sec).
+    /// </summary>
+    public void RotateModelToFace(Transform modelVisual, Transform target, float rotationSpeed = 360f, bool onlyYAxis = true, bool instant = true)
+    {
+        if (target == null) return;
+
+        // fallback model visual
+        if (modelVisual == null)
+        {
+            if (navController != null && navController.modelRoot != null)
+                modelVisual = navController.modelRoot;
+            else
+                modelVisual = this.transform;
+        }
+
+        // cancel any in-progress rotation for this NPC
+        if (rotateCoroutine != null)
+        {
+            StopCoroutine(rotateCoroutine);
+            rotateCoroutine = null;
+        }
+
+        // compute direction
+        Vector3 dir = target.position - modelVisual.position;
+        if (onlyYAxis) dir.y = 0f;
+        if (dir.sqrMagnitude <= 1e-6f) return; // nothing meaningful to look at
+
+        Quaternion desired = Quaternion.LookRotation(dir.normalized, Vector3.up);
+
+        if (instant || rotationSpeed <= 0f)
+        {
+            modelVisual.rotation = desired;
+        }
+        else
+        {
+            // start a short coroutine to rotate over time (one-time)
+            rotateCoroutine = StartCoroutine(RotateOnceCoroutine(modelVisual, desired, rotationSpeed));
+        }
+    }
+
+        private IEnumerator RotateOnceCoroutine(Transform modelVisual, Quaternion desired, float rotationSpeed)
+        {
+            if (modelVisual == null) yield break;
+
+            float remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
+
+            // If already close, snap immediately
+            if (remainingAngle <= 0.01f)
+            {
+                modelVisual.rotation = desired;
+                rotateCoroutine = null;
+                yield break;
+            }
+
+            while (remainingAngle > 0.25f)
+            {
+                float maxStep = rotationSpeed * Time.deltaTime;
+                modelVisual.rotation = Quaternion.RotateTowards(modelVisual.rotation, desired, maxStep);
+                remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
+                yield return null;
+            }
+
+            // ensure exact final rotation
+            if (modelVisual != null) modelVisual.rotation = desired;
+            rotateCoroutine = null;
+        }
 }

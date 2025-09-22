@@ -45,14 +45,31 @@ public class DialogueManager : MonoBehaviour
     [Tooltip("CanvasGroup used as a dim background behind the dialogue panel. Leave null to disable.")]
     public CanvasGroup dialogueBackgroundGroup;
 
-    // simple pending dialogue record + queue
+    // --- replace existing PendingDialogue struct with this ---
     private struct PendingDialogue
     {
         public GameObject npcObject;
         public string npcID;
-        public PendingDialogue(GameObject obj, string id) { npcObject = obj; npcID = id; }
+        // snapshot of lines to play later (may be null -> fall back to trigger.GetDialogueLines())
+        public string[] dialogueLines;
+        // snapshot of journal entries to add when this dialogue runs (may be null)
+        public JournalTriggerEntry[] journalEntries;
+
+        public PendingDialogue(GameObject obj, string id, string[] lines, JournalTriggerEntry[] journals)
+        {
+            npcObject = obj;
+            npcID = id;
+            dialogueLines = lines;
+            journalEntries = journals;
+        }
     }
+
+
+    // queue
     private Queue<PendingDialogue> dialogueQueue = new Queue<PendingDialogue>();
+
+    // processing flag (similar to your nav queue pattern)
+    private bool processingDialogueQueue = false;
 
     void Start()
     {
@@ -209,13 +226,30 @@ public class DialogueManager : MonoBehaviour
             panelFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialoguePanelGroup, 0, false));
         yield return panelFadeCoroutine;
 
-        // Fade out the dim background as the dialogue fully closes
-        if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
-        if (dialogueBackgroundGroup != null)
-            backgroundFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialogueBackgroundGroup, 0f, false));
-        yield return backgroundFadeCoroutine;
+        // Decide whether to keep the background visible based ONLY on actual queued items.
+        // processingDialogueQueue can be true while the queue is empty (because the processor coroutine is active),
+        // so relying on it causes the background to remain visible incorrectly.
+        bool keepBackground = (dialogueQueue.Count > 0);
 
-        // Dialogue panel has closed — consider this the "finished" moment and also mark DEM (safe duplicate)
+        if (dialogueBackgroundGroup != null)
+        {
+            // Stop any running background fade first
+            if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
+
+            if (keepBackground)
+            {
+                // Keep background visible without re-fading (avoids flicker)
+                SetCanvasGroup(dialogueBackgroundGroup, 1f, false);
+            }
+            else
+            {
+                backgroundFadeCoroutine = StartCoroutine(FadeCanvasGroup(dialogueBackgroundGroup, 0f, false));
+                yield return backgroundFadeCoroutine;
+                backgroundFadeCoroutine = null;
+            }
+        }
+
+        // Consider this the "finished" moment and mark DEM (single call)
         if (currentNPC != null)
         {
             dialogueEventsManager?.AddToTriggeredList(currentNPC.gameObject.name);
@@ -223,9 +257,11 @@ public class DialogueManager : MonoBehaviour
 
         isFading = false;
 
-        // try to play any queued dialogue
-        TryProcessNextQueuedDialogue();
+        // try to play any queued dialogue — start processor if not already running
+        if (!processingDialogueQueue)
+            StartCoroutine(ProcessDialogueQueue());
     }
+
 
     private IEnumerator TransitionToDialogue()
     {
@@ -238,6 +274,14 @@ public class DialogueManager : MonoBehaviour
         yield return promptFadeCoroutine;
 
         yield return new WaitForSeconds(0.05f);
+
+        // Make sure dialogue text is empty BEFORE the panel is re-activated/faded in to avoid showing the previous dialog.
+        if (dialogueText != null)
+        {
+            dialogueText.text = "";
+            dialogueText.maxVisibleCharacters = 0;
+            dialogueText.ForceMeshUpdate();
+        }
 
         // Start background fade but KEEP the GameObject active at the end
         if (backgroundFadeCoroutine != null) { StopCoroutine(backgroundFadeCoroutine); backgroundFadeCoroutine = null; }
@@ -258,12 +302,11 @@ public class DialogueManager : MonoBehaviour
         yield return panelFadeCoroutine;
 
         // Start typewriter effect
-        dialogueText.text = "";
+        // make sure currentDialogue is already set by the caller
         typewriterCoroutine = StartCoroutine(TypeText(currentDialogue));
 
         isFading = false;
     }
-
 
     private IEnumerator CloseDialogueAndPrompt()
     {
@@ -455,84 +498,131 @@ public class DialogueManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Force-start dialogue for the given NPC GameObject. 
-    /// Pass the NPC's GameObject and the NPC ID string you want recorded in the DialogueEventsManager.
-    /// This will behave like the player pressed E: it sets up internal state and starts the dialogue UI.
+    /// Enqueue dialogue for the given NPC GameObject with explicit lines and explicit journal entries.
+    /// Pass null for lines to use the NPCTrigger's current lines; pass null for journalEntries to skip journals.
     /// </summary>
-    public void PlayDialogueFor(GameObject npcObject, string npcID)
+    public void PlayDialogueFor(GameObject npcObject, string npcID, string[] explicitLines, JournalTriggerEntry[] explicitJournalEntries)
     {
         if (npcObject == null)
         {
-            Debug.LogWarning("[DialogueManager] PlayDialogueFor called with null npcObject.");
+            Debug.LogWarning("[DialogueManager] PlayDialogueFor (lines+journals) called with null npcObject.");
             return;
         }
 
-        // If dialogue is currently visible or we're in a fade transition, enqueue the request.
-        if (dialogueVisible || isFading)
+        // clone to avoid external mutation
+        string[] linesSnapshot = explicitLines != null ? (string[])explicitLines.Clone() : null;
+        JournalTriggerEntry[] journalSnapshot = null;
+        if (explicitJournalEntries != null)
+            journalSnapshot = (JournalTriggerEntry[])explicitJournalEntries.Clone();
+
+        dialogueQueue.Enqueue(new PendingDialogue(npcObject, npcID, linesSnapshot, journalSnapshot));
+        Debug.Log($"[DialogueManager] PlayDialogueFor(lines+journals): enqueued '{npcObject.name}' id='{npcID}'. QueueCount={dialogueQueue.Count}");
+
+        if (!processingDialogueQueue)
+            StartCoroutine(ProcessDialogueQueue());
+    }
+
+
+
+    // Starts dialogue using a PendingDialogue (uses snapshot if provided)
+    private void StartForcedDialogue(PendingDialogue pd)
+    {
+        if (pd.npcObject == null)
         {
-            dialogueQueue.Enqueue(new PendingDialogue(npcObject, npcID));
-            Debug.Log("[DialogueManager] PlayDialogueFor: dialogue busy — request enqueued.");
+            Debug.LogWarning("[DialogueManager] StartForcedDialogue: pd.npcObject is null.");
             return;
         }
 
-        // Try to find the NPCDialogueTrigger component
-        var trigger = npcObject.GetComponent<NPCDialogueTrigger>();
+        // Try to find the trigger
+        var trigger = pd.npcObject.GetComponent<NPCDialogueTrigger>();
         if (trigger == null)
         {
-            Debug.LogWarning($"[DialogueManager] PlayDialogueFor: no NPCDialogueTrigger found on '{npcObject.name}'.");
+            Debug.LogWarning($"[DialogueManager] StartForcedDialogue: no NPCDialogueTrigger found on '{pd.npcObject.name}'.");
             return;
         }
 
-        // If we're currently fading or showing a dialogue, clear/stop the previous state safely
-        ResetDialogueState();
-
-        // Set the current NPC so other parts of the system behave normally (prompt hiding, DEM, etc.)
+        // set the currentNPC so rest of system behaves normally
         currentNPC = trigger;
 
-        // Pull dialogue lines from the trigger
-        string[] lines = trigger.GetDialogueLines();
-        if (lines == null || lines.Length == 0)
+        // Use snapshot if present, otherwise read from the trigger
+        currentDialogueLines = pd.dialogueLines ?? trigger.GetDialogueLines();
+        if (currentDialogueLines == null || currentDialogueLines.Length == 0)
         {
-            Debug.LogWarning($"[DialogueManager] PlayDialogueFor: NPC '{npcObject.name}' has no dialogue lines.");
+            Debug.LogWarning($"[DialogueManager] StartForcedDialogue: NPC '{pd.npcObject.name}' has no dialogue lines.");
             currentNPC = null;
             return;
         }
 
-        // Initialize dialogue state the same way StartDialogue does
-        currentDialogueLines = lines;
         currentLineIndex = 0;
         currentDialogue = currentDialogueLines[currentLineIndex];
         dialogueVisible = true;
 
         // Optionally mark the DialogueEventsManager with the provided npcID (so it counts as triggered)
-        if (!string.IsNullOrEmpty(npcID))
+        if (!string.IsNullOrEmpty(pd.npcID))
         {
-            dialogueEventsManager?.AddToTriggeredList(npcID);
+            dialogueEventsManager?.AddToTriggeredList(pd.npcID);
         }
 
-        // --- NEW: If the NPC has a JournalTrigger, add its entries now (since the player didn't press E)
-        var journal = npcObject.GetComponent<JournalTrigger>() 
-                    ?? npcObject.GetComponentInChildren<JournalTrigger>(true);
+       // If there's a JournalTrigger component on the NPC (or child), set snapshot first then add entries
+        var journal = pd.npcObject.GetComponent<JournalTrigger>()
+                    ?? pd.npcObject.GetComponentInChildren<JournalTrigger>(true);
         if (journal != null)
         {
+            // If this queued item carried journal entries, apply them to the JournalTrigger before adding to the journal.
+            if (pd.journalEntries != null)
+            {
+                try
+                {
+                    journal.SetEntries(pd.journalEntries); // NPCManager used this earlier so JournalTrigger should expose it
+                    Debug.Log($"[DialogueManager] StartForcedDialogue: Applied {pd.journalEntries.Length} journal entries to '{pd.npcObject.name}'.");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"[DialogueManager] StartForcedDialogue: failed to SetEntries on '{pd.npcObject.name}': {ex}");
+                }
+            }
+
+            // finally add to the player's journal (original behavior)
             journal.AddEntryToJournal();
-            Debug.Log($"[DialogueManager] PlayDialogueFor: Added journal entries from '{npcObject.name}'.");
+            Debug.Log($"[DialogueManager] StartForcedDialogue: Added journal entries from '{pd.npcObject.name}'.");
         }
-        // Kick off the UI transition (fades + typewriter) — reuses your existing coroutine
+        // Ensure the UI text is cleared immediately so the panel won't show previous text while fading in.
+        if (dialogueText != null)
+        {
+            dialogueText.text = "";
+            dialogueText.maxVisibleCharacters = 0;
+            // Force TMP update to ensure internal counts are correct
+            dialogueText.ForceMeshUpdate();
+        }
+
+        // Kick off UI transition
         StartCoroutine(TransitionToDialogue());
     }
 
-    private void TryProcessNextQueuedDialogue()
+   private IEnumerator ProcessDialogueQueue()
     {
-        if (dialogueQueue.Count == 0) return;
-        var pd = dialogueQueue.Dequeue();
-        // Start next on the next frame to let UI settle
-        StartCoroutine(ProcessQueuedAfterFrame(pd));
-    }
+        processingDialogueQueue = true;
 
-    private IEnumerator ProcessQueuedAfterFrame(PendingDialogue pd)
-    {
-        yield return null;
-        PlayDialogueFor(pd.npcObject, pd.npcID);
+        while (dialogueQueue.Count > 0)
+        {
+            var pd = dialogueQueue.Dequeue();
+            Debug.Log($"[DialogueManager] ProcessDialogueQueue: next '{pd.npcObject?.name}' id='{pd.npcID}'. Remaining={dialogueQueue.Count}");
+
+            // WAIT here until any currently-displayed dialogue + fades finish.
+            // This prevents the queued dialogue from replacing an in-progress dialogue.
+            yield return new WaitUntil(() => !dialogueVisible && !isFading);
+
+            // Start the dialogue for this queued item (uses snapshot set on pd)
+            StartForcedDialogue(pd);
+
+            // Wait until that dialogue fully finishes and the UI is settled
+            yield return new WaitUntil(() => !dialogueVisible && !isFading);
+
+            // small one-frame delay to let UI state settle before starting the next one
+            yield return null;
+        }
+
+        processingDialogueQueue = false;
+        Debug.Log("[DialogueManager] ProcessDialogueQueue: queue empty, processor stopped.");
     }
 }
