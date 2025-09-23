@@ -21,9 +21,18 @@ public class KALANManager : MonoBehaviour
     public UnityEvent onSuccessfulInteraction;
     public UnityEvent onFailedInteraction;
 
+    [Header("Task gating")]
+    [Tooltip("If non-empty, interaction (and prompt) will only be enabled while BaybayinManager.IsTaskStarted(TaskStarted) is true.")]
+    public string TaskStarted = ""; // <-- public field labeled "TaskStarted" in inspector
+
+    [Tooltip("If true the GameObject will be disabled after a successful interaction.")]
+    public bool disableAfterTrigger = false;
+
     // runtime
     private bool playerNearby = false;
     private bool hasInteracted = false;
+    public BaybayinManager BayMan;
+    public GameObject ActivateAfter;
 
     void Start()
     {
@@ -49,6 +58,19 @@ public class KALANManager : MonoBehaviour
         // interact with E key while nearby (same UX as your Magsasaka trigger)
         if (!hasInteracted && playerNearby && Input.GetKeyDown(KeyCode.E))
         {
+            // Dynamic gating: only allow interact if the required task (if any) has started
+            if (!IsTaskAllowed())
+            {
+                // optional helpful feedback
+                if (string.IsNullOrWhiteSpace(TaskStarted))
+                    FloatingNotifier.Instance?.ShowMessage("You can't interact right now.", Color.red);
+                else
+                    FloatingNotifier.Instance?.ShowMessage($"You can't use this yet. Requires task '{TaskStarted}'.", Color.red);
+
+                onFailedInteraction?.Invoke();
+                return;
+            }
+
             TryInteract();
         }
     }
@@ -59,8 +81,8 @@ public class KALANManager : MonoBehaviour
 
         playerNearby = true;
 
-        // show prompt if not already interacted
-        if (!hasInteracted)
+        // show prompt only if not already interacted AND the task gating (if any) allows it
+        if (!hasInteracted && IsTaskAllowed())
         {
             if (FloatingNotifier.Instance != null)
                 FloatingNotifier.Instance.ShowMessage(interactionPrompt, Color.white);
@@ -81,6 +103,32 @@ public class KALANManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Returns true when interaction is allowed by the TaskStarted gating (or when no gating is set).
+    /// </summary>
+    private bool IsTaskAllowed()
+    {
+        if (string.IsNullOrWhiteSpace(TaskStarted))
+            return true; // no gating required
+
+        if (BayMan == null)
+        {
+            // If BayMan missing and a task is required, treat as not allowed and warn.
+            Debug.LogWarning($"[KALANManager] TaskStarted='{TaskStarted}' but BayMan reference is null. Interaction will remain disabled until BayMan assigned.");
+            return false;
+        }
+
+        try
+        {
+            return BayMan.IsTaskStarted(TaskStarted);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[KALANManager] Exception while checking BayMan.IsTaskStarted('{TaskStarted}'): {ex}. Treating as not started.");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Attempt to interact with this Kalan. Meant to be called from input or other systems.
     /// </summary>
     public void TryInteract()
@@ -92,6 +140,14 @@ public class KALANManager : MonoBehaviour
         {
             Debug.LogWarning("InventoryManager.Instance is null.");
             FloatingNotifier.Instance?.ShowMessage("You can't interact right now.", Color.red);
+            onFailedInteraction?.Invoke();
+            return;
+        }
+
+        // Double-check gating at entry to be defensive
+        if (!IsTaskAllowed())
+        {
+            FloatingNotifier.Instance?.ShowMessage($"This Kalan is not ready yet (task '{TaskStarted}' not started).", Color.red);
             onFailedInteraction?.Invoke();
             return;
         }
@@ -141,11 +197,30 @@ public class KALANManager : MonoBehaviour
         // Success: perform Kalan logic
         PerformInteraction(item.itemName);
 
-        // Persist
+        // Persist (only once, since hasInteracted currently makes this one-shot)
         SaveLoadManager.Instance?.MarkObjectInteracted(interactableID);
         SaveLoadManager.Instance?.MarkPickupCollected(interactableID);
 
         onSuccessfulInteraction?.Invoke();
+
+        // If requested, activate another GameObject BEFORE disabling this one.
+        if (disableAfterTrigger)
+        {
+            if (ActivateAfter != null)
+            {
+                try
+                {
+                    ActivateAfter.SetActive(true);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[KALANManager] Failed to activate 'ActivateAfter' GameObject: {ex}");
+                }
+            }
+
+            // Finally deactivate this object
+            gameObject.SetActive(false);
+        }
     }
 
     private void PerformInteraction(string usedItem)
@@ -155,12 +230,14 @@ public class KALANManager : MonoBehaviour
         // Kalan-specific outcomes (customize further as needed)
         if (string.Equals(usedItem, "BowlBigas", StringComparison.OrdinalIgnoreCase))
         {
-            FloatingNotifier.Instance?.ShowMessage("You cooked rice in the bowl on the Kalan!", Color.white);
+            FloatingNotifier.Instance?.ShowMessage("You put the galapong on the Kalan!", Color.white);
+            BayMan?.Task10();
             // TODO: spawn cooked rice, update world state, play animation, etc.
         }
         else if (string.Equals(usedItem, "BowlPangkulay", StringComparison.OrdinalIgnoreCase))
         {
-            FloatingNotifier.Instance?.ShowMessage("You heated the dye in the bowl on the Kalan!", Color.magenta);
+            FloatingNotifier.Instance?.ShowMessage("You mixed the dye in on the Kalan!", Color.magenta);
+            BayMan?.Task11();
             // TODO: trigger dyeing flow, change clothes, etc.
         }
         else

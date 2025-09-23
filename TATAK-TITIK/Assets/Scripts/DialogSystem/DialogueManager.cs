@@ -574,7 +574,7 @@ public class DialogueManager : MonoBehaviour
             dialogueEventsManager?.AddToTriggeredList(pd.npcID);
         }
 
-       // If there's a JournalTrigger component on the NPC (or child), set snapshot first then add entries
+        // If there's a JournalTrigger component on the NPC (or child), set snapshot first then add entries
         var journal = pd.npcObject.GetComponent<JournalTrigger>()
                     ?? pd.npcObject.GetComponentInChildren<JournalTrigger>(true);
         if (journal != null)
@@ -610,7 +610,7 @@ public class DialogueManager : MonoBehaviour
         StartCoroutine(TransitionToDialogue());
     }
 
-   private IEnumerator ProcessDialogueQueue()
+    private IEnumerator ProcessDialogueQueue()
     {
         processingDialogueQueue = true;
 
@@ -635,5 +635,44 @@ public class DialogueManager : MonoBehaviour
 
         processingDialogueQueue = false;
         Debug.Log("[DialogueManager] ProcessDialogueQueue: queue empty, processor stopped.");
+        ClearDialogueQueue();
+    }
+    
+    /// <summary>
+    /// Clears any pending/queued dialogue and force-closes the dialogue UI.
+    /// Safe to call from SaveLoad to prevent dialogue softlocks after loading.
+    /// This will discard any queued dialogues and reset internal state.
+    /// </summary>
+    public void ClearDialogueQueue()
+    {
+        // 1) Clear the queue so the processor has nothing to do
+        dialogueQueue.Clear();
+
+        // 2) If a processor is running, allow it to exit gracefully by clearing the flag.
+        //    ProcessDialogueQueue checks dialogueQueue.Count and the dialogueVisible/isFading flags,
+        //    so we also reset those below.
+        processingDialogueQueue = false;
+
+        // 3) Stop and clear our tracked coroutine handles (ForceHidePrompt + ResetDialogueState
+        //    already stop the same coroutines, but we call them to be extra safe).
+        ForceHidePrompt();         // stops fades/typewriter and hides canvas groups
+        ResetDialogueState();      // stops specific coroutines, clears text and UI groups
+
+        // 4) Reset runtime state so waiting WaitUntil(...) checks in coroutines will pass
+        currentNPC = null;
+        currentDialogueLines = null;
+        currentLineIndex = 0;
+        currentDialogue = "";
+        dialogueVisible = false;
+        isFading = false;
+        promptFadeInPending = false;
+
+        // 5) Clear coroutine references (defensive)
+        typewriterCoroutine = null;
+        backgroundFadeCoroutine = null;
+        panelFadeCoroutine = null;
+        promptFadeCoroutine = null;
+
+        Debug.Log("[DialogueManager] ClearDialogueQueue: queue cleared and UI state reset.");
     }
 }

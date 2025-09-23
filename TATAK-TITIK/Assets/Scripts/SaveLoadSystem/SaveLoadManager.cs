@@ -20,6 +20,7 @@ public class SaveLoadManager : MonoBehaviour
     private bool shouldResetInventoryAfterLoad = false;
 
     public static SaveLoadManager Instance;
+    public DialogueManager DM;
     private HashSet<string> collectedPickupIDs = new HashSet<string>();
     private HashSet<string> interactedObjectIDs = new HashSet<string>();
     private bool? pendingJournalAvailable = null;
@@ -421,6 +422,7 @@ public class SaveLoadManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        DM.ClearDialogueQueue();
         if (shouldResetInventoryAfterLoad)
         {
             StartCoroutine(ResetInventoryDelayed());

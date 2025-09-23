@@ -19,6 +19,10 @@ public class BaybayinManager : MonoBehaviour
     public Transform BabaylanTransform;
     public GameObject[] Leaves;
     public GameObject RiceBowl;
+    public GameObject PaintBowl;
+
+    public GameObject RiceBowlKALAN;
+    public GameObject PaintBowlKALAN;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -141,6 +145,13 @@ public class BaybayinManager : MonoBehaviour
     JournalTriggerEntry[] Kiko9Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "mangkok", displayWord = "ᜋᜅ᜔ᜃᜓᜃ᜔"},
         new JournalTriggerEntry { key = "kalan", displayWord = "ᜃᜎᜈ᜔"}};
+
+    JournalTriggerEntry[] Kiko10Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "kulay", displayWord = "ᜃᜓᜎᜌ᜔"},
+        new JournalTriggerEntry { key = "galapong", displayWord = "ᜄᜎᜉᜓᜅ᜔"}};
+
+    JournalTriggerEntry[] Kiko11Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "pintura", displayWord = "ᜉᜒᜈ᜔ᜆᜓᜇ"}};
     private void OnEnable()
     {
         DNC.SetTimeOfDay(22f, 2f);
@@ -419,6 +430,19 @@ public class BaybayinManager : MonoBehaviour
 
             case "task8":
                 break;
+            
+            case "task9":
+                PaintBowl.SetActive(true);
+                break;
+
+            case "task10":
+                break;
+            
+            case "task11":
+                break;
+
+            case "task12":
+                break;
 
             default:
                 Debug.Log($"[BaybayinManager] ApplyTaskEffects: no explicit handler for '{taskName}'.");
@@ -503,6 +527,32 @@ public class BaybayinManager : MonoBehaviour
 
             case "task8":
                 Kiko.EnqueueDestination(waypoints[18]);
+                Kiko.ChangeNPCID("Kiko8", false);
+                Kiko.SetDialogueLines(Kiko8Lines);
+                Kiko.SetJournalEntries(Kiko8Journal);
+                break;
+
+            case "task9":
+                Kiko.ChangeNPCID("Kiko9", false);
+                Kiko.SetDialogueLines(Kiko9Lines);
+                Kiko.SetJournalEntries(Kiko9Journal);
+                break;
+            
+            case "task10":
+                Kiko.ChangeNPCID("Kiko10", false);
+                Kiko.SetDialogueLines(Kiko10Lines);
+                Kiko.SetJournalEntries(Kiko10Journal);
+                RiceBowlKALAN.SetActive(true);
+                break;
+            
+            case "task11":
+                Kiko.ChangeNPCID("Kiko11", false);
+                Kiko.SetDialogueLines(Kiko11Lines);
+                Kiko.SetJournalEntries(Kiko11Journal);
+                PaintBowlKALAN.SetActive(true);
+                break;
+
+            case "task12":
                 break;
 
             default:
@@ -839,14 +889,43 @@ public class BaybayinManager : MonoBehaviour
     {
         Debug.Log("Task 8 time");
         Kiko.EnqueueDestination(waypoints[18]);
+        Kiko.ChangeNPCID("Kiko8", false);
         Kiko.SetDialogueLines(Kiko8Lines);
         Kiko.SetJournalEntries(Kiko8Journal);
         MarkTaskCompleted("task7");
         MarkTaskStarted("task8");
     }
 
-    public void Task9() //KIKO leaves, get RiceBowl, put on 
+    public void Task9() //get RiceBowl, put on 
     {
-        
+        Debug.Log("Task 9 time");
+        Kiko.ChangeNPCID("Kiko9", false);
+        Kiko.SetDialogueLines(Kiko9Lines);
+        Kiko.SetJournalEntries(Kiko9Journal);
+        Kiko.PlayDialogue("KIKO", Kiko9Lines, Kiko9Journal);
+        MarkTaskCompleted("task8");
+        MarkTaskStarted("task9");
+    }
+
+    public void Task10()    //put PaintBowl on Kalan
+    {
+        Debug.Log("Task 10 time");
+        Kiko.ChangeNPCID("Kiko10", false);
+        Kiko.SetDialogueLines(Kiko10Lines);
+        Kiko.SetJournalEntries(Kiko10Journal);
+        Kiko.PlayDialogue("KIKO", Kiko10Lines, Kiko10Journal);
+        MarkTaskCompleted("task9");
+        MarkTaskStarted("task10");
+    }
+    public void Task11()    //hang leaves
+    {
+        Debug.Log("Task 11 time");
+        Kiko.EnqueueDestination(waypoints[20]);
+        Kiko.ChangeNPCID("Kiko10", false);
+        Kiko.SetDialogueLines(Kiko11Lines);
+        Kiko.SetJournalEntries(Kiko11Journal);
+        Kiko.PlayDialogue("KIKO", Kiko11Lines, Kiko11Journal);
+        MarkTaskCompleted("task10");
+        MarkTaskStarted("task11");
     }
 }
