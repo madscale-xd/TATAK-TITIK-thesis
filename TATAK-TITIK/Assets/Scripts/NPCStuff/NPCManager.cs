@@ -23,7 +23,7 @@ public class NPCManager : MonoBehaviour
     private float savedNavRotationSpeed = float.NaN;
     private bool hasSavedNavRotationSpeed = false;
     // near other public methods
-    private bool isTalking = false;
+    public bool isTalking = false;
     public void NotifyDialogueStarted() => isTalking = true;
 
     // expose query if you want

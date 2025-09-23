@@ -113,6 +113,9 @@ public class BaybayinManager : MonoBehaviour
     public string[] Babaylan5Lines = new string[] {
         ""
     };
+    public string[] Kiko6Lines = new string[] {
+        ""
+    };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -132,6 +135,10 @@ public class BaybayinManager : MonoBehaviour
         new JournalTriggerEntry { key = "tulog", displayWord = "ᜆᜓᜎᜓᜄ᜔"},
         new JournalTriggerEntry { key = "bukas", displayWord = "ᜊᜓᜃᜐ᜔"}
     };
+    JournalTriggerEntry[] Kiko6Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "mag-ani", displayWord = "ᜋᜄ᜔-ᜀᜈᜒ"},
+        new JournalTriggerEntry { key = "kiping", displayWord = "ᜃᜒᜉᜒᜅ᜔"},
+        new JournalTriggerEntry { key = "palamuti", displayWord = "ᜉᜎᜋᜓᜆᜒ"} };
 
     private void OnEnable()
     {
@@ -362,12 +369,15 @@ public class BaybayinManager : MonoBehaviour
             case "task2":
                 // Apply permanent task2 effects (clear Kiko destinations early so rehydrates don't leave old paths)
                 Kiko.ClearDestinations();
-                if (MagsasakaObj != null) {
+                if (MagsasakaObj != null)
+                {
                     MagsasakaObj.SetActive(true);
                 }
-                else {
+                else
+                {
                     Debug.Log("Mgassask");
-                };
+                }
+                ;
                 break;
 
             case "task3":
@@ -377,6 +387,9 @@ public class BaybayinManager : MonoBehaviour
 
             case "task4":
                 break;
+            
+            case "task5":
+                break;
 
             default:
                 Debug.Log($"[BaybayinManager] ApplyTaskEffects: no explicit handler for '{taskName}'.");
@@ -385,7 +398,7 @@ public class BaybayinManager : MonoBehaviour
     }
 
 
-   public void ApplyStartEffects(string taskName)
+    public void ApplyStartEffects(string taskName)
     {
         if (string.IsNullOrWhiteSpace(taskName)) return;
 
@@ -434,6 +447,11 @@ public class BaybayinManager : MonoBehaviour
                     Magsasaka.EnqueueDestination(waypoints[7]);
                     Magsasaka.EnqueueDestination(waypoints[8]);
                 }
+                Babaylan.EnqueueDestination(waypoints[15]);
+                Kiko.EnqueueDestination(waypoints[17]);
+                break;
+
+            case "task5":
                 break;
 
             default:
@@ -528,6 +546,8 @@ public class BaybayinManager : MonoBehaviour
         // mark done
         MarkTaskCompleted("task2");
         Debug.Log("[BaybayinManager] MarkTask2Completed: task2 marked completed.");
+        Babaylan.EnqueueDestination(waypoints[16]);
+        Kiko.EnqueueDestination(waypoints[6]);
 
         // If you have a 'run once' semantic for task2 you can set a flag here similar to task1HasRun.
         // (If you add bool task2HasRun; to the class, uncomment the next line)
@@ -720,6 +740,27 @@ public class BaybayinManager : MonoBehaviour
 
     public void Task4()
     {
+        Debug.Log("Task 4 time");
         MarkTaskStarted("task4");
+        Babaylan.ChangeNPCID("Babaylan5");
+        Babaylan.EnqueueDestination(waypoints[15]);
+        Babaylan.SetDialogueLines(Babaylan5Lines);
+        Babaylan.LockRotationToTarget(playerTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+        Kiko.LockRotationToTarget(playerTransform, onlyYAxis: true, snap: false, preventControllerOverride: true, smoothSpeed: 360f);
+        Babaylan.PlayDialogue("BABAYLAN");
+
+        Kiko.EnqueueDestination(waypoints[17]);
+        Kiko.ChangeNPCID("Kiko6", false);
+        Kiko.SetJournalEntries(Kiko6Journal);
+        Kiko.SetDialogueLines(Kiko6Lines);
+        Kiko.PlayDialogue("KIKO", Kiko6Lines, Kiko6Journal);
+    }
+
+    public void Task5()
+    {
+        Debug.Log("Task 5 time");
+        MarkTaskCompleted("task4");
+        MarkTaskStarted("task5");
+        Kiko.EnqueueDestination(waypoints[7]);
     }
 }
