@@ -18,6 +18,7 @@ public class BaybayinManager : MonoBehaviour
     public GameObject SombreroCosmetic;
     public Transform BabaylanTransform;
     public GameObject[] Leaves;
+    public GameObject RiceBowl;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -102,6 +103,11 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko6Lines = new string[] { "" };
     public string[] Kiko7Lines = new string[] { "" };
     public string[] Kiko8Lines = new string[] { "" };
+    public string[] Kiko9Lines = new string[] { "" };
+    public string[] Kiko10Lines = new string[] { "" };
+    public string[] Kiko11Lines = new string[] { "" };
+    public string[] Kiko12Lines = new string[] { "" };
+    public string[] Kiko13Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -131,6 +137,10 @@ public class BaybayinManager : MonoBehaviour
 
     JournalTriggerEntry[] Kiko8Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "dito", displayWord = "ᜇᜒᜆᜓ"}};
+
+    JournalTriggerEntry[] Kiko9Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "mangkok", displayWord = "ᜋᜅ᜔ᜃᜓᜃ᜔"},
+        new JournalTriggerEntry { key = "kalan", displayWord = "ᜃᜎᜈ᜔"}};
     private void OnEnable()
     {
         DNC.SetTimeOfDay(22f, 2f);
@@ -404,7 +414,9 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task7":
+                RiceBowl.SetActive(true);
                 break;
+
             case "task8":
                 break;
 
@@ -488,9 +500,9 @@ public class BaybayinManager : MonoBehaviour
                     }
                 }
                 break;
-            
-            case "task8":
 
+            case "task8":
+                Kiko.EnqueueDestination(waypoints[18]);
                 break;
 
             default:
@@ -823,7 +835,7 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task7");
     }
 
-    public void Task8() //go to table
+    public void Task8() //KIKO go to table
     {
         Debug.Log("Task 8 time");
         Kiko.EnqueueDestination(waypoints[18]);
@@ -831,5 +843,10 @@ public class BaybayinManager : MonoBehaviour
         Kiko.SetJournalEntries(Kiko8Journal);
         MarkTaskCompleted("task7");
         MarkTaskStarted("task8");
+    }
+
+    public void Task9() //KIKO leaves, get RiceBowl, put on 
+    {
+        
     }
 }

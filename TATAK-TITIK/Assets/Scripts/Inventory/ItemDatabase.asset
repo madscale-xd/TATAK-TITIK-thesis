@@ -49,6 +49,10 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: d855ad6402b181d44852a213be6736ec, type: 3}
     equippedIcon: {fileID: 21300000, guid: 9d48911661fb403489baac2a6e0b0c40, type: 3}
     description: BowlPangkulay
+  - itemName: BowlGalapong
+    icon: {fileID: 21300000, guid: b432fbb30412e1545b909e29f8c37d72, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 2857f131498f7af478167de576241972, type: 3}
+    description: BowlGalapong
   - itemName: Kiko
     icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
     equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
