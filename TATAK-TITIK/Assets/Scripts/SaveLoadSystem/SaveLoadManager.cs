@@ -188,17 +188,16 @@ public class SaveLoadManager : MonoBehaviour
             data.timeOfDayHours = -1f;
         }
 
-        // Persist BaybayinManager completed tasks (if present in the scene)
         var bay = FindObjectOfType<BaybayinManager>();
         if (bay != null)
         {
-            data.completedTasks = bay.GetCompletedTasks();
-            data.startedTasks = bay.GetStartedTasks(); // NEW
+            data.completedTasks = bay.GetCompletedTasks(); // ordered
+            data.startedTasks = bay.GetStartedTasks();     // ordered (oldest..newest)
         }
         else
         {
             data.completedTasks = new List<string>();
-            data.startedTasks = new List<string>(); // NEW
+            data.startedTasks = new List<string>();
         }
 
         SaveSystem.Save(data, slot);
@@ -591,9 +590,7 @@ public class SaveLoadManager : MonoBehaviour
                 foreach (var t in pendingBaybayinCompletedTasks)
                 {
                     if (string.IsNullOrWhiteSpace(t)) continue;
-                    bay.ApplyTaskEffects(t); // rehydrate completion
-                    if (!bay.IsTaskCompleted(t))
-                        bay.MarkTaskCompleted(t); // ensures internal set is consistent (ApplyTaskEffects also adds but safe)
+                    bay.MarkTaskCompleted(t); // will record in ordered list and ApplyTaskEffects
                 }
                 Debug.Log($"[SaveLoadManager] Applied {pendingBaybayinCompletedTasks.Count} Baybayin completed task(s) from save.");
             }
@@ -605,18 +602,13 @@ public class SaveLoadManager : MonoBehaviour
             pendingBaybayinCompletedTasks = null;
         }
 
-        // NEW: apply started/in-progress tasks
-        // After finding BaybayinManager:
         if (pendingBaybayinStartedTasks != null && pendingBaybayinStartedTasks.Count > 0)
         {
             var bay = FindObjectOfType<BaybayinManager>();
             if (bay != null)
             {
-                // treat index 0 as the intended "current" started task
-                string started = pendingBaybayinStartedTasks[0];
-                if (!string.IsNullOrWhiteSpace(started))
-                    bay.MarkTaskStarted(started);
-                Debug.Log($"[SaveLoadManager] Applied started task '{started}' from save.");
+                // Defer one frame so NPCs and waypoints have initialized
+                StartCoroutine(ApplyBaybayinStartedTasksNextFrame(bay, pendingBaybayinStartedTasks));
             }
             pendingBaybayinStartedTasks = null;
         }
@@ -705,7 +697,7 @@ public class SaveLoadManager : MonoBehaviour
 
         Debug.Log($"[SaveLoadManager] Player position applied (attempts={attempts + 1}). Final position: {playerTransform.position}");
     }
-    
+
     public void MarkPickupCollected(string pickupID)
     {
         collectedPickupIDs.Add(pickupID);
@@ -835,5 +827,15 @@ public class SaveLoadManager : MonoBehaviour
         if (Mathf.Abs(pos.x) > maxAbs || Mathf.Abs(pos.y) > maxAbs || Mathf.Abs(pos.z) > maxAbs) return false;
 
         return true;
+    }
+    private IEnumerator ApplyBaybayinStartedTasksNextFrame(BaybayinManager bay, List<string> tasks)
+    {
+        // wait a frame so NPCs/waypoints/agents are ready
+        yield return null;
+
+        // Pass full ordered list; LoadStartedTasks will set currentStartedTask = last element
+        bay.LoadStartedTasks(tasks, applyNow: true);
+
+        Debug.Log($"[SaveLoadManager] Rehydrated Baybayin started tasks (count={tasks.Count}). Current = '{(tasks.Count>0? tasks[tasks.Count-1] : "<none>")}'");
     }
 }

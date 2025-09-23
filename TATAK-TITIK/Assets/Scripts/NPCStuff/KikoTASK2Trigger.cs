@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
+using System.Collections;
+using System;
 
 /// <summary>
 /// Bed-interaction trigger: when player is in range and presses E,
@@ -38,6 +41,62 @@ public class KikoTask2Trigger : MonoBehaviour
     Collider playerCollider = null;
     DialogueEventsManager dem => DialogueEventsManager.Instance;
 
+    private void OnEnable()
+    {
+        if (DialogueEventsManager.Instance != null)
+            DialogueEventsManager.Instance.OnTriggeredAdded += HandleDemTriggered;
+    }
+
+    private void OnDisable()
+    {
+        if (DialogueEventsManager.Instance != null)
+            DialogueEventsManager.Instance.OnTriggeredAdded -= HandleDemTriggered;
+    }
+
+    private void HandleDemTriggered(string npcId)
+    {
+        // if the required NPC just triggered and player is in the bed range, show prompt
+        if (!playerInRange) return;
+        if (string.Equals(npcId, requiredTriggeredNPCID, StringComparison.OrdinalIgnoreCase))
+        {
+            if (itemPromptManager == null) itemPromptManager = FindObjectOfType<ItemPromptManager>();
+            if (itemPromptManager != null)
+                itemPromptManager.ShowPrompt(usablePrompt);
+            if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] DEM triggered '{npcId}' while player in range -> prompt shown.");
+        }
+    }
+
+    void Update()
+    {
+        if (!playerInRange || hasTriggered) return;
+
+        if (itemPromptManager == null)
+            itemPromptManager = FindObjectOfType<ItemPromptManager>();
+
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+
+            var demLocal = DialogueEventsManager.Instance;
+            if (demLocal == null)
+            {
+                Debug.LogWarning("[KikoTask2Trigger] DialogueEventsManager.Instance is null on E press.");
+                return;
+            }
+
+            if (!demLocal.IsTriggered(requiredTriggeredNPCID))
+            {
+                if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] E pressed but required '{requiredTriggeredNPCID}' not triggered.");
+                // Optional: give feedback to the player
+                // itemPromptManager?.ShowTemporaryMessage("You can't sleep yet.");
+                return;
+            }
+
+            // Success — mark task 2 completed
+            TriggerTask2Complete();
+        }
+    }
+
     void Reset()
     {
         var col = GetComponent<Collider>();
@@ -59,45 +118,35 @@ public class KikoTask2Trigger : MonoBehaviour
             itemPromptManager = FindObjectOfType<ItemPromptManager>();
     }
 
+   // Replace OnTriggerEnter with this version
     void OnTriggerEnter(Collider other)
     {
-        // If the global task is already done, don't do anything (prevents other beds from showing prompt)
-        if (baybayinManager != null && baybayinManager.IsTaskCompleted("task2"))
-        {
-            if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] Global task2 already completed — ignoring trigger.");
-            return;
-        }
+        if (!other.CompareTag("Player")) return;
         // already used and configured to only allow once -> do nothing
         if (hasTriggered && triggerOnce) return;
 
-        if (!other.CompareTag("Player")) return;
+        playerInRange = true;
+        playerCollider = other;
 
-        // Check DEM for required NPC id
-        if (dem == null)
-        {
-            Debug.LogWarning("[KikoTask2Trigger] DialogueEventsManager.Instance is null. Cannot verify required trigger.");
-            return;
-        }
+        // ensure itemPromptManager reference
+        if (itemPromptManager == null)
+            itemPromptManager = FindObjectOfType<ItemPromptManager>();
 
-        bool requiredTriggered = dem.IsTriggered(requiredTriggeredNPCID);
+        // Check DEM for required NPC id and show prompt only when allowed
+        var demLocal = DialogueEventsManager.Instance;
+        bool requiredTriggered = demLocal != null && demLocal.IsTriggered(requiredTriggeredNPCID);
 
         if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] Player entered. RequiredTriggered={requiredTriggered}");
 
         if (requiredTriggered && !hasTriggered)
         {
-            playerInRange = true;
-            playerCollider = other;
-
-            // show the prompt
             if (itemPromptManager != null)
                 itemPromptManager.ShowPrompt(usablePrompt);
         }
-        else
-        {
-            // no prompt shown if requirement not met (keeps UX clean)
-        }
+        // If not requiredTriggered yet, we still keep playerInRange = true and rely on HandleDemTriggered to show prompt later
     }
 
+    // Replace OnTriggerExit to always clear state
     void OnTriggerExit(Collider other)
     {
         if (!other.CompareTag("Player")) return;
@@ -106,36 +155,8 @@ public class KikoTask2Trigger : MonoBehaviour
         playerInRange = false;
         playerCollider = null;
 
-        // hide the prompt
         if (itemPromptManager != null)
             itemPromptManager.HidePrompt();
-    }
-
-    void Update()
-    {
-        if (!playerInRange || hasTriggered) return;
-
-        // only respond to E when the player is in range, E is pressed, and not clicking over UI
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-
-            // re-check requirement in case DEM changed while in range
-            if (dem == null)
-            {
-                Debug.LogWarning("[KikoTask2Trigger] DialogueEventsManager.Instance is null on E press.");
-                return;
-            }
-
-            if (!dem.IsTriggered(requiredTriggeredNPCID))
-            {
-                if (debugLogs) Debug.Log($"[KikoTask2Trigger:{name}] E pressed but required '{requiredTriggeredNPCID}' not triggered.");
-                return;
-            }
-
-            // Success — mark task 2 completed (BaybayinManager will handle advancing time / other consequences)
-            TriggerTask2Complete();
-        }
     }
 
     void TriggerTask2Complete()

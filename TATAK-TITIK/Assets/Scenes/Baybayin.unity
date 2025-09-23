@@ -18122,7 +18122,9 @@ MonoBehaviour:
   Babaylan: {fileID: 1465779632}
   Magsasaka: {fileID: 2020061761}
   MagsasakaObj: {fileID: 2020061759}
+  MagTrig: {fileID: 2058703593}
   Sombrero: {fileID: 619856749}
+  SombreroCosmetic: {fileID: 6859472800379787320}
   BabaylanTransform: {fileID: 1465779638}
   moveTarget: {fileID: 0}
   requireIdMatch: 0
@@ -21128,7 +21130,7 @@ MonoBehaviour:
   - "<color=#125699><b>\u1710\u170E\u170B\u1706\u1714!</b></color> \u170B\u1702\u1702\u1708
     \u1708 \u1700\u1703\u1713. "
   SombreroHat: {fileID: 6859472800379787320}
-  BayMan: {fileID: 0}
+  BayMan: {fileID: 1829109498}
 --- !u!1 &2061431797 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5061112454012118173, guid: 05f913dac00c2c941b8b068d36baf959, type: 3}

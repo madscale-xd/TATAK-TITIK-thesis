@@ -79,6 +79,7 @@ public class MagsasakaTASK4TRigger : MonoBehaviour
         // keypress-based interaction while near the NPC
         if (!hasInteracted && playerNearby && Input.GetKeyDown(KeyCode.E))
         {
+            BayMan.MarkTaskStarted("task3");
             TryInteract();
         }
 
@@ -190,6 +191,8 @@ public class MagsasakaTASK4TRigger : MonoBehaviour
         Magsasaka.SetDialogueLines(magsasaka2Lines);
         Magsasaka.SetJournalEntries(magsasaka2Journal);
         Magsasaka.PlayDialogue("MAGSASAKA", magsasaka2Lines, magsasaka2Journal);
+        BayMan.MarkTaskCompleted("task3");
+        BayMan.Task4();
 
         // persist the interaction
         if (SaveLoadManager.Instance != null)
@@ -207,5 +210,12 @@ public class MagsasakaTASK4TRigger : MonoBehaviour
 
         // begin color transition to "done" state
         transitionProgress = 0f;
+    }
+
+    public void KeepMagsasakaUpdated()
+    {
+        Magsasaka.ChangeNPCID("Magsasaka2");
+        Magsasaka.SetDialogueLines(magsasaka2Lines);
+        Magsasaka.SetJournalEntries(magsasaka2Journal);
     }
 }

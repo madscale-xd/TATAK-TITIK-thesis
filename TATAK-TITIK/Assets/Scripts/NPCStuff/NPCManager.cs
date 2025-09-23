@@ -298,6 +298,15 @@ public class NPCManager : MonoBehaviour
         processingDestinations = false;
     }
 
+    public void ClearDestinations()
+    {
+        // e.g. clear your internal destination queue list
+        destinationQueue.Clear();
+        // stop agent
+        var a = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (a != null) { a.ResetPath(); a.isStopped = true; }
+    }
+
     private void HandleNavReached()
     {
         // this is called whenever the nav controller reaches a destination.

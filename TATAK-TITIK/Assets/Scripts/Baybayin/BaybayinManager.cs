@@ -13,7 +13,9 @@ public class BaybayinManager : MonoBehaviour
     public NPCManager Babaylan;
     public NPCManager Magsasaka;
     public GameObject MagsasakaObj;
+    public MagsasakaTASK4TRigger MagTrig;
     public GameObject Sombrero;
+    public GameObject SombreroCosmetic;
     public Transform BabaylanTransform;
 
     [Header("Optional: final move target (not required)")]
@@ -43,26 +45,28 @@ public class BaybayinManager : MonoBehaviour
     private string pendingTask2KikoID = null;
     // pending id for Task3: when this ID is triggered, start Task3
     private string pendingTask3MagsasakaID = null;
-
-    // internal tracking: track multiple completed tasks (idempotent)
-    private HashSet<string> completedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private bool task1HasRun = false;
 
     // NEW: internal tracking of started (in-progress) tasks (idempotent)
+    // --- Fields (replace your started/completed fields with these) ---
+    private HashSet<string> completedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private List<string> completedTaskOrder = new List<string>(); // preserves completion order
+
     private HashSet<string> startedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private List<string> startedTaskOrder = new List<string>(); // preserves started order
     private string currentStartedTask = null;
 
     /// <summary>Return a copy of completed tasks for saving or inspection.</summary>
     public List<string> GetCompletedTasks()
     {
-        return new List<string>(completedTasks);
+        // return in saved order (oldest -> newest)
+        return new List<string>(completedTaskOrder);
     }
 
-    /// <summary>Return a copy of started tasks for saving or inspection. NEW.</summary>
     public List<string> GetStartedTasks()
     {
-        if (string.IsNullOrWhiteSpace(currentStartedTask)) return new List<string>();
-        return new List<string>{ currentStartedTask }; // first/only entry = current
+        // return the ordered started list (oldest -> newest); SaveLoadManager can use last as "current"
+        return new List<string>(startedTaskOrder);
     }
 
     /// <summary>Query whether a named task is completed.</summary>
@@ -279,23 +283,29 @@ public class BaybayinManager : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(taskName)) return;
 
-        // already done?
         if (completedTasks.Contains(taskName))
         {
             Debug.Log($"[BaybayinManager] MarkTaskCompleted: '{taskName}' already completed.");
             return;
         }
 
-        // record it
         completedTasks.Add(taskName);
+        if (!completedTaskOrder.Contains(taskName))
+            completedTaskOrder.Add(taskName);
 
-        // some tasks may need special flags (task1 had a run-once flag earlier)
+        // If this task was in the started set, remove it — it's no longer "in-progress"
+        if (startedTasks.Contains(taskName))
+        {
+            startedTasks.Remove(taskName);
+            startedTaskOrder.RemoveAll(s => string.Equals(s, taskName, StringComparison.OrdinalIgnoreCase));
+            if (string.Equals(currentStartedTask, taskName, StringComparison.OrdinalIgnoreCase))
+                currentStartedTask = (startedTaskOrder.Count > 0) ? startedTaskOrder[startedTaskOrder.Count - 1] : null;
+        }
+
         if (taskName.Equals("task1", StringComparison.OrdinalIgnoreCase) && task1RunOnlyOnce)
             task1HasRun = true;
 
         Debug.Log($"[BaybayinManager] MarkTaskCompleted: '{taskName}' recorded.");
-
-        // Apply the side effects immediately (safe idempotent implementation)
         ApplyTaskEffects(taskName);
     }
 
@@ -304,74 +314,68 @@ public class BaybayinManager : MonoBehaviour
     public void MarkTaskStarted(string taskName)
     {
         if (string.IsNullOrWhiteSpace(taskName)) return;
-        if (string.Equals(currentStartedTask, taskName, StringComparison.OrdinalIgnoreCase)) return;
 
+        // If it's already recorded as started, just make it current
+        if (startedTasks.Contains(taskName))
+        {
+            currentStartedTask = taskName;
+            // make sure order reflects last-started
+            startedTaskOrder.RemoveAll(s => string.Equals(s, taskName, StringComparison.OrdinalIgnoreCase));
+            startedTaskOrder.Add(taskName);
+            Debug.Log($"MarkTaskStarted (existing): currentStartedTask = '{taskName}'");
+            return;
+        }
+
+        startedTasks.Add(taskName);
+        startedTaskOrder.Add(taskName);
         currentStartedTask = taskName;
-        Debug.Log($"MarkTaskStarted: currentStartedTask = '{taskName}'");
+        Debug.Log($"MarkTaskStarted: recorded startedTasks.Add('{taskName}') and currentStartedTask = '{taskName}'");
+
+        // Apply non-terminal start effects (idempotent)
         ApplyStartEffects(taskName);
     }
 
 
-    /// <summary>
-    /// Apply side-effects associated with a completed task.
-    /// This is safe to call on load to rehydrate runtime state without
-    /// re-starting interactive flows that require player actions.
-    /// </summary>
-    public void ApplyTaskEffects(string taskName)       //PERMANENT
+    public void ApplyTaskEffects(string taskName)
     {
         if (string.IsNullOrWhiteSpace(taskName)) return;
 
-        // guard so we don't reapply expensive stuff twice
+        // ensure recorded in completed set/order
         if (!completedTasks.Contains(taskName))
+        {
             completedTasks.Add(taskName);
+            if (!completedTaskOrder.Contains(taskName))
+                completedTaskOrder.Add(taskName);
+        }
 
         switch (taskName.ToLowerInvariant())
         {
             case "task1":
-                // Reapply what MarkTask1Completed did: snapshot Kiko -> Kiko2 lines/state
                 if (Kiko != null)
                 {
                     Kiko.ChangeNPCID("Kiko2", false);
                     Kiko.SetDialogueLines(Kiko2Lines);
                 }
-                // Mark that Task1 was run (preserve run-once semantics)
                 if (task1RunOnlyOnce) task1HasRun = true;
                 break;
 
             case "task2":
-                // Reapply Task2 side-effects: advance time & enable Magsasaka (and other required effects)
-                if (DNC != null)
-                {
-                    try
-                    {
-                        // set to morning (same as runtime)
-                        DNC.SetTimeOfDay(8f, 10f);
-                        Debug.Log("[BaybayinManager] ApplyTaskEffects: Set time of day for task2.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogWarning($"[BaybayinManager] ApplyTaskEffects(task2): exception setting time: {ex}");
-                    }
-                }
-
-                // enable Magsasaka object if assigned
-                if (MagsasakaObj != null)
-                {
+                // Apply permanent task2 effects (clear Kiko destinations early so rehydrates don't leave old paths)
+                Kiko.ClearDestinations();
+                if (MagsasakaObj != null) {
                     MagsasakaObj.SetActive(true);
                 }
-
-                // if there's any other non-interactive side-effect from your original MarkTask2Completed,
-                // apply it here (e.g., journal toggles, scene flags).
+                else {
+                    Debug.Log("Mgassask");
+                };
                 break;
 
             case "task3":
-                // Reapply Task3 side-effects — example: reveal Sombrero or whatever Task3 does
-                if (Sombrero != null)
-                {
-                    Sombrero.SetActive(true);
-                }
+                if (SombreroCosmetic != null)
+                    SombreroCosmetic.SetActive(true);
+                break;
 
-                // add any extra rehydration your Task3 would have done
+            case "task4":
                 break;
 
             default:
@@ -380,58 +384,56 @@ public class BaybayinManager : MonoBehaviour
         }
     }
 
-    // NEW: Apply the non-terminal / "in-progress" effects for a started task.
-    // These should not mark the task complete but should rehydrate NPC state that indicates the task is underway.
-    // By default this mirrors some parts of ApplyTaskEffects in a non-terminal way — customize as needed.
-    public void ApplyStartEffects(string taskName)
+
+   public void ApplyStartEffects(string taskName)
     {
         if (string.IsNullOrWhiteSpace(taskName)) return;
+
+        // IMPORTANT: don't apply start-effects for a task that's already been completed.
+        if (IsTaskCompleted(taskName))
+        {
+            Debug.Log($"[BaybayinManager] ApplyStartEffects: '{taskName}' already completed — skipping start-effects.");
+            return;
+        }
 
         switch (taskName.ToLowerInvariant())
         {
             case "task1":
-            if (Kiko == null)
-            {
-                Debug.LogWarning("[BaybayinManager] Task1: Kiko (NPCManager) is not assigned.");
-                return;
-            }
-
-            if (waypoints == null || waypoints.Length == 0)
-            {
-                Debug.LogWarning("[BaybayinManager] Task1: waypoints array is empty. Nothing to enqueue.");
-                return;
-            }
-
-            // explicit desired indices: 0,1,5
-            int[] desiredIndices = new int[] { 1, 5 };
-
-            int enqueued = 0;
-            foreach (int i in desiredIndices)
-            {
-                if (i < 0 || i >= waypoints.Length)
+                if (Kiko == null)
                 {
-                    Debug.LogWarning($"[BaybayinManager] Task1: waypoint index {i} is out of range (waypoints.Length={waypoints.Length}). Skipping.");
-                    continue;
+                    Debug.LogWarning("[BaybayinManager] Task1: Kiko is not assigned.");
+                    return;
                 }
-
-                if (waypoints[i] == null)
+                if (waypoints == null || waypoints.Length == 0)
                 {
-                    Debug.LogWarning($"[BaybayinManager] Task1: waypoint[{i}] is null. Skipping.");
-                    continue;
+                    Debug.LogWarning("[BaybayinManager] Task1: waypoints array is empty. Nothing to enqueue.");
+                    return;
                 }
-
-                Kiko.EnqueueDestination(waypoints[i]);
-                enqueued++;
-            }
+                int[] desiredIndices = new int[] { 1, 5 };
+                foreach (int i in desiredIndices)
+                {
+                    if (i < 0 || i >= waypoints.Length) continue;
+                    if (waypoints[i] == null) continue;
+                    // If your NPCManager has a HasDestination check, use it. Otherwise ensure EnqueueDestination is idempotent.
+                    Kiko.EnqueueDestination(waypoints[i]);
+                }
                 break;
 
             case "task2":
                 break;
 
             case "task3":
-                // Example: reveal partial visuals for Task3 but don't mark finished
-                if (Sombrero != null)
-                    Sombrero.SetActive(true);
+                if (Sombrero != null) Sombrero.SetActive(true);
+                break;
+
+            case "task4":
+                if (MagTrig != null) MagTrig.KeepMagsasakaUpdated();
+                if (Magsasaka != null && waypoints != null && waypoints.Length > 8)
+                {
+                    Magsasaka.EnqueueDestination(waypoints[6]);
+                    Magsasaka.EnqueueDestination(waypoints[7]);
+                    Magsasaka.EnqueueDestination(waypoints[8]);
+                }
                 break;
 
             default:
@@ -440,18 +442,55 @@ public class BaybayinManager : MonoBehaviour
         }
     }
 
-    // NEW: convenience to re-apply all started-task effects (call on load if desired)
     public void RehydrateStartedTasks()
     {
-        foreach (var t in startedTasks)
+        if (string.IsNullOrWhiteSpace(currentStartedTask))
         {
-            ApplyStartEffects(t);
+            Debug.Log("[BaybayinManager] RehydrateStartedTasks: no current started task to rehydrate.");
+            return;
         }
+
+        Debug.Log($"[BaybayinManager] RehydrateStartedTasks: applying start-effects for currentStartedTask='{currentStartedTask}'");
+        ApplyStartEffects(currentStartedTask);
     }
 
-    public void MarkTask1Completed()
+    // Call this from SaveLoadManager after pendingBaybayinStartedTasks is available
+    public void LoadStartedTasks(IEnumerable<string> started, bool applyNow = false)
     {
+        if (started == null) return;
+        startedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        startedTaskOrder = new List<string>();
+
+        foreach (var s in started)
+        {
+            if (string.IsNullOrWhiteSpace(s)) continue;
+            if (!startedTasks.Contains(s))
+            {
+                startedTasks.Add(s);
+                startedTaskOrder.Add(s);
+            }
+        }
+
+        // current started = last one in list
+        if (startedTaskOrder.Count > 0)
+            currentStartedTask = startedTaskOrder[startedTaskOrder.Count - 1];
+        else
+            currentStartedTask = null;
+
+        if (applyNow)
+            RehydrateStartedTasks();
+    }
+
+    public void MarkTask1Completed()    //Kiko reaches hut
+    {
+        if (IsTaskCompleted("task1"))
+        {
+            Debug.Log("[BaybayinManager] MarkTask2Completed: already completed, ignoring.");
+            return;
+        }
         MarkTaskCompleted("task1");
+        Kiko.ClearDestinations();
+        MarkTaskStarted("task2");
 
         // Change Kiko ID and update lines immediately
         Kiko.ChangeNPCID("Kiko2", false);
@@ -487,7 +526,7 @@ public class BaybayinManager : MonoBehaviour
         }
 
         // mark done
-        MarkTaskCompleted("Task2");
+        MarkTaskCompleted("task2");
         Debug.Log("[BaybayinManager] MarkTask2Completed: task2 marked completed.");
 
         // If you have a 'run once' semantic for task2 you can set a flag here similar to task1HasRun.
@@ -573,7 +612,7 @@ public class BaybayinManager : MonoBehaviour
     /// The explicit Task1 movement. Only started by TryStartTask1ForTrigger above.
     /// Enqueues waypoints 0,1,5 (skips out-of-range/null). moveTarget is optional and enqueued last if assigned.
     /// </summary>
-    void Task1()
+    void Task1()    //going towards Babaylan hut
     {
         DNC.SetTimeOfDay(23f, 20f);
         if (Kiko == null)
@@ -629,7 +668,7 @@ public class BaybayinManager : MonoBehaviour
             task1HasRun = true;
     }
 
-    void Task2()
+    void Task2()    //exchange between Kiko and Babaylan
     {
         Kiko.PlayDialogue("KIKO");
         Kiko.ChangeNPCID("Kiko3", false);
@@ -672,11 +711,15 @@ public class BaybayinManager : MonoBehaviour
         Babaylan.PlayDialogue("BABAYLAN", Babaylan4Lines, Babaylan4Journal);
     }
 
-    void Task3()
+    void Task3()    //Hat state
     {
         Debug.Log("[BaybayinManager] Task3: starting...");
         Sombrero.SetActive(true);
         Debug.Log("[BaybayinManager] Task3: finished (customize the method body with real actions).");
-        MarkTaskCompleted("task3");
+    }
+
+    public void Task4()
+    {
+        MarkTaskStarted("task4");
     }
 }

@@ -89,6 +89,7 @@ public class SaveData
     public List<string> completedTasks = new List<string>();
     // NEW: track started/in-progress tasks for BaybayinManager
     public List<string> startedTasks = new List<string>();
+    public string currentStartedTask;
 
 
     // NEW: persisted time-of-day (in hours 0..24). -1 means not set / not saved.
