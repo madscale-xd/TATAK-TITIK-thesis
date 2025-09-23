@@ -253,6 +253,10 @@ public class DialogueManager : MonoBehaviour
         if (currentNPC != null)
         {
             dialogueEventsManager?.AddToTriggeredList(currentNPC.gameObject.name);
+
+            var finishedNpcMgr = currentNPC.gameObject.GetComponent<NPCManager>();
+            if (finishedNpcMgr != null)
+                finishedNpcMgr.NotifyDialogueFinished();
         }
 
         isFading = false;
@@ -556,6 +560,13 @@ public class DialogueManager : MonoBehaviour
         currentLineIndex = 0;
         currentDialogue = currentDialogueLines[currentLineIndex];
         dialogueVisible = true;
+
+        // Notify NPC (if it has an NPCManager)
+        var npcMgr = pd.npcObject.GetComponent<NPCManager>();
+        if (npcMgr != null)
+        {
+            npcMgr.NotifyDialogueStarted();
+        }
 
         // Optionally mark the DialogueEventsManager with the provided npcID (so it counts as triggered)
         if (!string.IsNullOrEmpty(pd.npcID))

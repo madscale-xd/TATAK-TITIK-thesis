@@ -22,6 +22,12 @@ public class NPCManager : MonoBehaviour
     private float lockRotationSpeed = 720f; // deg/sec used when smoothing toward locked rotation
     private float savedNavRotationSpeed = float.NaN;
     private bool hasSavedNavRotationSpeed = false;
+    // near other public methods
+    private bool isTalking = false;
+    public void NotifyDialogueStarted() => isTalking = true;
+
+    // expose query if you want
+    public bool IsTalking() => isTalking;
 
     [Header("Core singletons / references")]
     [Tooltip("Optional: assign the DialogueEventsManager here. If left null, DialogueEventsManager.Instance will be used.")]
@@ -481,30 +487,42 @@ public class NPCManager : MonoBehaviour
         }
     }
 
-        private IEnumerator RotateOnceCoroutine(Transform modelVisual, Quaternion desired, float rotationSpeed)
+    private IEnumerator RotateOnceCoroutine(Transform modelVisual, Quaternion desired, float rotationSpeed)
+    {
+        if (modelVisual == null) yield break;
+
+        float remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
+
+        // If already close, snap immediately
+        if (remainingAngle <= 0.01f)
         {
-            if (modelVisual == null) yield break;
-
-            float remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
-
-            // If already close, snap immediately
-            if (remainingAngle <= 0.01f)
-            {
-                modelVisual.rotation = desired;
-                rotateCoroutine = null;
-                yield break;
-            }
-
-            while (remainingAngle > 0.25f)
-            {
-                float maxStep = rotationSpeed * Time.deltaTime;
-                modelVisual.rotation = Quaternion.RotateTowards(modelVisual.rotation, desired, maxStep);
-                remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
-                yield return null;
-            }
-
-            // ensure exact final rotation
-            if (modelVisual != null) modelVisual.rotation = desired;
+            modelVisual.rotation = desired;
             rotateCoroutine = null;
+            yield break;
         }
+
+        while (remainingAngle > 0.25f)
+        {
+            float maxStep = rotationSpeed * Time.deltaTime;
+            modelVisual.rotation = Quaternion.RotateTowards(modelVisual.rotation, desired, maxStep);
+            remainingAngle = Quaternion.Angle(modelVisual.rotation, desired);
+            yield return null;
+        }
+
+        // ensure exact final rotation
+        if (modelVisual != null) modelVisual.rotation = desired;
+        rotateCoroutine = null;
+    }
+        
+    public void NotifyDialogueFinished()
+    {
+        isTalking = false;
+
+        // Let the NPC move for a short window even if the player is in interact range.
+        // Adjust duration as needed (1f = 1 second).
+        if (tracker != null)
+        {
+            tracker.SuppressTrackingForSeconds(1f);
+        }
+    }
 }

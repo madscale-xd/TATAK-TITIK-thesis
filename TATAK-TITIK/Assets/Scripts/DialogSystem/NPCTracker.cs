@@ -66,6 +66,7 @@ public class NPCTracker : MonoBehaviour
     private bool rbKinematicBefore = false;
     private Vector3 rbVelocityBefore = Vector3.zero;
     private Vector3 rbAngularBefore = Vector3.zero;
+    private float suppressTrackingUntil = 0f;
 
     // extra behaviours saved states
     private List<bool> extraWasEnabled = new List<bool>();
@@ -167,6 +168,12 @@ public class NPCTracker : MonoBehaviour
     {
         if (!other.CompareTag("Player"))
             return;
+
+        if (Time.time < suppressTrackingUntil)
+        {
+            // intentionally do not increment playerInsideCount or set tracking state - the NPC is ignoring the player for now
+            return;
+        }
 
         // track multiple entries safely
         playerInsideCount = Mathf.Max(0, playerInsideCount + 1);
@@ -477,5 +484,116 @@ public class NPCTracker : MonoBehaviour
     public void SetFloatingText(string text, bool showImmediately = false, float durationSeconds = 0f)
     {
         SetText(text, showImmediately, durationSeconds);
+    }
+
+    public void SuppressTrackingForSeconds(float seconds)
+    {
+        if (seconds <= 0f) return;
+        // start coroutine to handle suppression (it will restore movement immediately if needed)
+        StartCoroutine(SuppressTrackingCoroutine(seconds));
+    }
+
+    private IEnumerator SuppressTrackingCoroutine(float seconds)
+    {
+        // If currently tracking, restore movement now so NPC can start moving.
+        if (isTracking)
+        {
+            RestoreMovementFromTracking();   // method implemented below (extracted restore logic)
+            // Reset playerInsideCount so OnTriggerExit won't try to restore again.
+            playerInsideCount = 0;
+            isTracking = false;
+            playerTarget = null;
+        }
+
+        suppressTrackingUntil = Time.time + seconds;
+        yield return new WaitForSeconds(seconds);
+        suppressTrackingUntil = 0f;
+
+        // NOTE: we deliberately do NOT force re-enter tracking here.
+        // Re-entry will occur normally when the player leaves & re-enters (or you can add an overlap check here).
+    }
+    
+    // NPCTracker.cs - add this helper (use the same restoration code you currently run when the last player leaves)
+    private void RestoreMovementFromTracking()
+    {
+        // restore nav controller if we disabled it earlier
+        if (disableNavControllerWhenTracking && navController != null && navControllerWasEnabledBefore)
+        {
+            navController.enabled = true;
+            navControllerWasEnabledBefore = false;
+
+            // start coroutine to restore original rotationSpeed after restoreDelay
+            if (restoreRotationCoroutine != null)
+                StopCoroutine(restoreRotationCoroutine);
+            restoreRotationCoroutine = StartCoroutine(RestoreNavRotationAfterDelay(restoreDelay));
+        }
+        else
+        {
+            // if we didn't disable/enable the controller (but we did set rotationSpeed), still restore after delay
+            if (navController != null && hasSavedOriginal)
+            {
+                if (restoreRotationCoroutine != null)
+                    StopCoroutine(restoreRotationCoroutine);
+                restoreRotationCoroutine = StartCoroutine(RestoreNavRotationAfterDelay(restoreDelay));
+            }
+        }
+
+        // restore NavMeshAgent state (do NOT enable/disable the component)
+        if (stopNavAgent && localAgent != null)
+        {
+            // restore isStopped
+            localAgent.isStopped = agentWasStoppedBeforeTrigger;
+
+            // Restore movement settings if we saved them
+            if (hasSavedAgentMovementSettings)
+            {
+                // restore speed/accel first
+                localAgent.speed = savedAgentSpeed;
+                localAgent.acceleration = savedAgentAcceleration;
+
+                // Align internal agent position to transform before re-enabling updates to avoid snapping
+                localAgent.nextPosition = transform.position;
+
+                // restore updatePosition AFTER nextPosition is aligned
+                localAgent.updatePosition = savedAgentUpdatePosition;
+
+                hasSavedAgentMovementSettings = false;
+            }
+
+            // if we cleared the path earlier and we want to restore it, reassign destination
+            if (clearPathWhenStopped && hadPathBeforeTrigger)
+            {
+                localAgent.SetDestination(savedDestination);
+            }
+        }
+
+        // restore animator
+        if (localAnimator != null)
+        {
+            if (disableAnimatorRootMotion)
+                localAnimator.applyRootMotion = animatorRootMotionBefore;
+        }
+
+        // restore rigidbody
+        if (disableRigidbodyMovement && localRigidbody != null)
+        {
+            localRigidbody.isKinematic = rbKinematicBefore;
+            localRigidbody.velocity = rbVelocityBefore;
+            localRigidbody.angularVelocity = rbAngularBefore;
+        }
+
+        // restore extra behaviours
+        if (extraBehavioursToDisable != null)
+        {
+            for (int i = 0; i < extraBehavioursToDisable.Length; i++)
+            {
+                Behaviour b = extraBehavioursToDisable[i];
+                if (b == null) continue;
+                if (i < extraWasEnabled.Count)
+                    b.enabled = extraWasEnabled[i];
+            }
+
+            extraWasEnabled.Clear();
+        }
     }
 }
