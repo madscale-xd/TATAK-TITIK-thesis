@@ -17,6 +17,7 @@ public class BaybayinManager : MonoBehaviour
     public GameObject Sombrero;
     public GameObject SombreroCosmetic;
     public Transform BabaylanTransform;
+    public GameObject[] Leaves;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -45,6 +46,7 @@ public class BaybayinManager : MonoBehaviour
     private string pendingTask2KikoID = null;
     // pending id for Task3: when this ID is triggered, start Task3
     private string pendingTask3MagsasakaID = null;
+    public string kiko7TriggerNPCID = "Kiko7";
     private bool task1HasRun = false;
 
     // NEW: internal tracking of started (in-progress) tasks (idempotent)
@@ -88,34 +90,18 @@ public class BaybayinManager : MonoBehaviour
 
     [Header("New Lines")]
     //Act1
-    public string[] Kiko2Lines = new string[] {
-        ""
-    };
-    public string[] Babaylan2Lines = new string[] {
-        ""
-    };
-    public string[] Kiko3Lines = new string[] {
-        ""
-    };
-    public string[] Babaylan3Lines = new string[] {
-        ""
-    };
-    public string[] Kiko4Lines = new string[] {
-        ""
-    };
-    public string[] Babaylan4Lines = new string[] {
-        ""
-    };
-    public string[] Kiko5Lines = new string[] {
-        ""
-    };
+    public string[] Kiko2Lines = new string[] { "" };
+    public string[] Babaylan2Lines = new string[] { "" };
+    public string[] Kiko3Lines = new string[] { "" };
+    public string[] Babaylan3Lines = new string[] { "" };
+    public string[] Kiko4Lines = new string[] { "" };
+    public string[] Babaylan4Lines = new string[] { "" };
+    public string[] Kiko5Lines = new string[] { "" };
     //Act2
-    public string[] Babaylan5Lines = new string[] {
-        ""
-    };
-    public string[] Kiko6Lines = new string[] {
-        ""
-    };
+    public string[] Babaylan5Lines = new string[] { "" };
+    public string[] Kiko6Lines = new string[] { "" };
+
+    public string[] Kiko7Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -139,6 +125,9 @@ public class BaybayinManager : MonoBehaviour
         new JournalTriggerEntry { key = "mag-ani", displayWord = "ᜋᜄ᜔-ᜀᜈᜒ"},
         new JournalTriggerEntry { key = "kiping", displayWord = "ᜃᜒᜉᜒᜅ᜔"},
         new JournalTriggerEntry { key = "palamuti", displayWord = "ᜉᜎᜋᜓᜆᜒ"} };
+
+    JournalTriggerEntry[] Kiko7Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "dahon", displayWord = "ᜇᜑᜓᜈ"}};
 
     private void OnEnable()
     {
@@ -234,6 +223,11 @@ public class BaybayinManager : MonoBehaviour
             Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' (Magsasaka). Starting Task3.");
             Task3();
         }
+        if (!string.IsNullOrWhiteSpace(kiko7TriggerNPCID) && string.Equals(kiko7TriggerNPCID, npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — calling OnKiko7Detected().");
+            Task7();
+        }
     }
 
     /// <summary>
@@ -279,6 +273,12 @@ public class BaybayinManager : MonoBehaviour
             pendingTask3MagsasakaID = null; // consume it
             Debug.Log($"[BaybayinManager] OnDialogueFinished detected '{npcID}' (Magsasaka). Starting Task3.");
             Task3();
+        }
+        // inside OnDialogueFinished, after other checks:
+        if (!string.IsNullOrWhiteSpace(kiko7TriggerNPCID) && string.Equals(kiko7TriggerNPCID, npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] OnDialogueFinished: detected '{npcID}' — calling OnKiko7Detected().");
+            Task7();
         }
     }
 
@@ -386,9 +386,22 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task4":
+                if (MagTrig != null) MagTrig.KeepMagsasakaUpdated();
+                if (Magsasaka != null && waypoints != null && waypoints.Length > 8)
+                {
+                    Magsasaka.EnqueueDestination(waypoints[6]);
+                    Magsasaka.EnqueueDestination(waypoints[7]);
+                    Magsasaka.EnqueueDestination(waypoints[8]);
+                }
+                break;
+
+            case "task5":
                 break;
             
-            case "task5":
+            case "task6":
+                break;
+            
+            case "task7":
                 break;
 
             default:
@@ -452,6 +465,24 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task5":
+                Kiko.ChangeNPCID("Kiko6", false);
+                Kiko.EnqueueDestination(waypoints[7]);
+                break;
+
+            case "task6":
+                Kiko.ChangeNPCID("Kiko7", false);
+                Kiko.SetDialogueLines(Kiko7Lines);
+                Kiko.SetJournalEntries(Kiko7Journal);
+                break;
+            
+            case "task7":
+                foreach (GameObject leaf in Leaves)
+                {
+                    if (leaf != null)
+                    {
+                        leaf.SetActive(true);
+                    }
+                }
                 break;
 
             default:
@@ -760,7 +791,26 @@ public class BaybayinManager : MonoBehaviour
     {
         Debug.Log("Task 5 time");
         MarkTaskCompleted("task4");
+        DNC.SetTimeOfDay(10f, 5f);
         MarkTaskStarted("task5");
         Kiko.EnqueueDestination(waypoints[7]);
+    }
+
+    public void Task6()
+    {
+        Debug.Log("Task 6 time");
+        DNC.SetTimeOfDay(11f, 5f);
+        MarkTaskCompleted("task5");
+        Kiko.ChangeNPCID("Kiko7", false);
+        Kiko.SetDialogueLines(Kiko7Lines);
+        Kiko.SetJournalEntries(Kiko7Journal);
+        MarkTaskStarted("task6");
+    }
+
+    public void Task7()
+    {
+        Debug.Log("Task 7 time");
+        MarkTaskCompleted("task6");
+        MarkTaskStarted("task7");
     }
 }

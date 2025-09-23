@@ -39,7 +39,7 @@ public class MagsasakaTASK4TRigger : MonoBehaviour
 
     [SerializeField] GameObject SombreroHat;
     [SerializeField] BaybayinManager BayMan;
-
+    [SerializeField] DayNightCycle DNC;
     void Start()
     {
         // generate persistent ID (can override with customInteractableID)
@@ -192,6 +192,7 @@ public class MagsasakaTASK4TRigger : MonoBehaviour
         Magsasaka.SetJournalEntries(magsasaka2Journal);
         Magsasaka.PlayDialogue("MAGSASAKA", magsasaka2Lines, magsasaka2Journal);
         BayMan.MarkTaskCompleted("task3");
+        DNC.SetTimeOfDay(9f, 5f);
         BayMan.Task4();
 
         // persist the interaction
