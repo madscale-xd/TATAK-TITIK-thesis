@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Events;
 
 [RequireComponent(typeof(Collider))]
-public class KikoTASK6Trigger : MonoBehaviour
+public class KikoTASK7Trigger : MonoBehaviour
 {
     [Tooltip("If assigned, only this NPCManager instance will trigger the waypoint.")]
     public NPCManager targetNPC;

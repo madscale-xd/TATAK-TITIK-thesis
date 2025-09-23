@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -190,5 +191,61 @@ public class InventoryManager : MonoBehaviour
 
         if (inventoryUI == null) inventoryUI = FindObjectOfType<InventoryUI>();
         inventoryUI?.UpdateInventoryUI();
+    }
+
+    /// <summary>
+    /// Returns the currently equipped item's name and quantity via out parameters.
+    /// itemName will be empty and quantity 0 if nothing is equipped or item not found.
+    /// Usage:
+    ///    string name; int qty;
+    ///    InventoryManager.Instance.GetEquippedItemInfo(out name, out qty);
+    /// </summary>
+    public void GetEquippedItemInfo(out string itemName, out int quantity)
+    {
+        // default values
+        itemName = string.Empty;
+        quantity = 0;
+
+        if (string.IsNullOrEmpty(equippedItem))
+            return;
+
+        itemName = equippedItem;
+
+        // find matching InventoryItem in the list (if present)
+        var item = items.Find(i => string.Equals(i.itemName, equippedItem, System.StringComparison.Ordinal));
+        if (item != null)
+            quantity = item.quantity;
+    }
+
+    /// <summary>
+    /// Check whether the inventory contains at least `requiredQty` of `checkName` (case-insensitive).
+    /// Returns true when requiredQty <= 0 or total found >= requiredQty.
+    /// </summary>
+    public bool CheckWholeInventory(string checkName, int requiredQty)
+    {
+        if (InventoryManager.Instance == null)
+        {
+            Debug.LogWarning("[BaybayinManager] CheckWholeInventory: InventoryManager.Instance is null.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(checkName))
+        {
+            Debug.LogWarning("[BaybayinManager] CheckWholeInventory: checkName is null/empty.");
+            return false;
+        }
+
+        if (requiredQty <= 0) return true; // trivially satisfied
+
+        int total = 0;
+        foreach (var it in InventoryManager.Instance.items)
+        {
+            if (it == null || string.IsNullOrWhiteSpace(it.itemName)) continue;
+            if (string.Equals(it.itemName, checkName, StringComparison.OrdinalIgnoreCase))
+                total += it.quantity;
+            if (total >= requiredQty) return true; // early out
+        }
+
+        return total >= requiredQty;
     }
 }

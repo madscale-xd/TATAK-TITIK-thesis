@@ -100,8 +100,8 @@ public class BaybayinManager : MonoBehaviour
     //Act2
     public string[] Babaylan5Lines = new string[] { "" };
     public string[] Kiko6Lines = new string[] { "" };
-
     public string[] Kiko7Lines = new string[] { "" };
+    public string[] Kiko8Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -129,6 +129,8 @@ public class BaybayinManager : MonoBehaviour
     JournalTriggerEntry[] Kiko7Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "dahon", displayWord = "ᜇᜑᜓᜈ"}};
 
+    JournalTriggerEntry[] Kiko8Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "dito", displayWord = "ᜇᜒᜆᜓ"}};
     private void OnEnable()
     {
         DNC.SetTimeOfDay(22f, 2f);
@@ -397,11 +399,13 @@ public class BaybayinManager : MonoBehaviour
 
             case "task5":
                 break;
-            
+
             case "task6":
                 break;
-            
+
             case "task7":
+                break;
+            case "task8":
                 break;
 
             default:
@@ -474,7 +478,7 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.SetDialogueLines(Kiko7Lines);
                 Kiko.SetJournalEntries(Kiko7Journal);
                 break;
-            
+
             case "task7":
                 foreach (GameObject leaf in Leaves)
                 {
@@ -483,6 +487,10 @@ public class BaybayinManager : MonoBehaviour
                         leaf.SetActive(true);
                     }
                 }
+                break;
+            
+            case "task8":
+
                 break;
 
             default:
@@ -769,7 +777,7 @@ public class BaybayinManager : MonoBehaviour
         Debug.Log("[BaybayinManager] Task3: finished (customize the method body with real actions).");
     }
 
-    public void Task4()
+    public void Task4() //Hat thanks, Morning dialogue
     {
         Debug.Log("Task 4 time");
         MarkTaskStarted("task4");
@@ -787,7 +795,7 @@ public class BaybayinManager : MonoBehaviour
         Kiko.PlayDialogue("KIKO", Kiko6Lines, Kiko6Journal);
     }
 
-    public void Task5()
+    public void Task5() //Moving Kiko to factory
     {
         Debug.Log("Task 5 time");
         MarkTaskCompleted("task4");
@@ -796,7 +804,7 @@ public class BaybayinManager : MonoBehaviour
         Kiko.EnqueueDestination(waypoints[7]);
     }
 
-    public void Task6()
+    public void Task6() //Kiko telling u to get leaves
     {
         Debug.Log("Task 6 time");
         DNC.SetTimeOfDay(11f, 5f);
@@ -807,10 +815,21 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task6");
     }
 
-    public void Task7()
+    public void Task7() //leaves collection time
     {
         Debug.Log("Task 7 time");
+        DNC.SetTimeOfDay(12f, 10f);
         MarkTaskCompleted("task6");
         MarkTaskStarted("task7");
+    }
+
+    public void Task8() //go to table
+    {
+        Debug.Log("Task 8 time");
+        Kiko.EnqueueDestination(waypoints[18]);
+        Kiko.SetDialogueLines(Kiko8Lines);
+        Kiko.SetJournalEntries(Kiko8Journal);
+        MarkTaskCompleted("task7");
+        MarkTaskStarted("task8");
     }
 }
