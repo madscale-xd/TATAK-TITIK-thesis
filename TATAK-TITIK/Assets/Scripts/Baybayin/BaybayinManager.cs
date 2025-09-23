@@ -430,14 +430,14 @@ public class BaybayinManager : MonoBehaviour
 
             case "task8":
                 break;
-            
+
             case "task9":
                 PaintBowl.SetActive(true);
                 break;
 
             case "task10":
                 break;
-            
+
             case "task11":
                 break;
 
@@ -537,14 +537,14 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.SetDialogueLines(Kiko9Lines);
                 Kiko.SetJournalEntries(Kiko9Journal);
                 break;
-            
+
             case "task10":
                 Kiko.ChangeNPCID("Kiko10", false);
                 Kiko.SetDialogueLines(Kiko10Lines);
                 Kiko.SetJournalEntries(Kiko10Journal);
                 RiceBowlKALAN.SetActive(true);
                 break;
-            
+
             case "task11":
                 Kiko.ChangeNPCID("Kiko11", false);
                 Kiko.SetDialogueLines(Kiko11Lines);
@@ -888,6 +888,7 @@ public class BaybayinManager : MonoBehaviour
     public void Task8() //KIKO go to table
     {
         Debug.Log("Task 8 time");
+        DNC.SetTimeOfDay(13f, 40f);
         Kiko.EnqueueDestination(waypoints[18]);
         Kiko.ChangeNPCID("Kiko8", false);
         Kiko.SetDialogueLines(Kiko8Lines);
@@ -921,6 +922,7 @@ public class BaybayinManager : MonoBehaviour
     {
         Debug.Log("Task 11 time");
         Kiko.EnqueueDestination(waypoints[20]);
+        DNC.SetTimeOfDay(15f, 40f);
         Kiko.ChangeNPCID("Kiko10", false);
         Kiko.SetDialogueLines(Kiko11Lines);
         Kiko.SetJournalEntries(Kiko11Journal);
@@ -928,4 +930,6 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskCompleted("task10");
         MarkTaskStarted("task11");
     }
+
+    public void Task12() { }
 }
