@@ -26,6 +26,7 @@ public class BaybayinManager : MonoBehaviour
     public GameObject RiceBowlKALAN;
     public GameObject PaintBowlKALAN;
     public GameObject GalapongBowlKALAN;
+    public GameObject HANGERHarvest;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -115,6 +116,8 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko11Lines = new string[] { "" };
     public string[] Kiko12Lines = new string[] { "" };
     public string[] Kiko13Lines = new string[] { "" };
+    public string[] Kiko14Lines = new string[] { "" };
+    public string[] Kiko15Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -135,7 +138,7 @@ public class BaybayinManager : MonoBehaviour
         new JournalTriggerEntry { key = "bukas", displayWord = "ᜊᜓᜃᜐ᜔"}
     };
     JournalTriggerEntry[] Kiko6Journal = new JournalTriggerEntry[]{
-        new JournalTriggerEntry { key = "mag-ani", displayWord = "ᜋᜄ᜔-ᜀᜈᜒ"},
+        new JournalTriggerEntry { key = "ani", displayWord = "ᜀᜈᜒ"},
         new JournalTriggerEntry { key = "kiping", displayWord = "ᜃᜒᜉᜒᜅ᜔"},
         new JournalTriggerEntry { key = "palamuti", displayWord = "ᜉᜎᜋᜓᜆᜒ"} };
 
@@ -155,6 +158,11 @@ public class BaybayinManager : MonoBehaviour
 
     JournalTriggerEntry[] Kiko11Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "pintura", displayWord = "ᜉᜒᜈ᜔ᜆᜓᜇ"}};
+    
+    JournalTriggerEntry[] Kiko15Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "usok", displayWord = "ᜂᜐᜓᜃ᜔"},
+        new JournalTriggerEntry { key = "tigas", displayWord = "ᜄᜎᜉᜓᜅ᜔"}};
+    
     private void OnEnable()
     {
         DNC.SetTimeOfDay(22f, 2f);
@@ -452,6 +460,7 @@ public class BaybayinManager : MonoBehaviour
 
             case "task13":
                 GreenLeaves.SetActive(false);
+                HANGERHarvest.SetActive(false);
                 break;
 
             case "task14":
@@ -572,6 +581,7 @@ public class BaybayinManager : MonoBehaviour
 
             case "task12":
                 GreenLeaves.SetActive(true);
+                DNC.SetTimeOfDay(9f, 20f);
                 Kiko.ChangeNPCID("Kiko12", false);
                 Kiko.EnqueueDestination(waypoints[19]);
                 Kiko.SetDialogueLines(Kiko12Lines);
@@ -585,6 +595,17 @@ public class BaybayinManager : MonoBehaviour
                 break;
             
             case "task14":
+                PinkLeaves.SetActive(true);
+                Kiko.ChangeNPCID("Kiko14", false);
+                Kiko.SetDialogueLines(Kiko14Lines);
+                break;
+            
+            case "task15":
+                DNC.SetTimeOfDay(10f, 5f);
+                PinkLeaves.SetActive(false);
+                break;
+            
+            case "task16":
                 PinkLeaves.SetActive(true);
                 break;
 
@@ -966,6 +987,7 @@ public class BaybayinManager : MonoBehaviour
     public void Task12()    //galapong
     {
         Debug.Log("Task 12 time");
+        DNC.SetTimeOfDay(9f, 20f);
         Kiko.EnqueueDestination(waypoints[19]);
         Kiko.ChangeNPCID("Kiko12", false);
         Kiko.SetDialogueLines(Kiko12Lines);
@@ -984,14 +1006,25 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task13");
     }
 
-    public void Task14()    //steam leaves
+    public void Task14()    //harvest painted leaves
     {
         Debug.Log("Task 14 time");
+        Kiko.ChangeNPCID("Kiko14", false);
+        Kiko.SetDialogueLines(Kiko14Lines);
+        Kiko.PlayDialogue("KIKO");
         MarkTaskCompleted("task13");
         MarkTaskStarted("task14");
     }
-    public void Task15()
+    public void Task15()    //go to steam leaves
     {
-        
+        DNC.SetTimeOfDay(10f, 5f);
+        Debug.Log("Task 15 time");
+        Kiko.ChangeNPCID("Kiko14", false);
+        Kiko.SetDialogueLines(Kiko15Lines);
+        Kiko.SetJournalEntries(Kiko15Journal);
+        Kiko.PlayDialogue("KIKO", Kiko15Lines, Kiko15Journal);
+        Kiko.EnqueueDestination(waypoints[21]);
+        MarkTaskCompleted("task14");
+        MarkTaskStarted("task15");
     }
 }
