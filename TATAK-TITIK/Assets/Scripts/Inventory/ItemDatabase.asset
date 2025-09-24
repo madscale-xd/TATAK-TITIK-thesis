@@ -25,6 +25,10 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: da44f2c1d412ccd40ab7662857089713, type: 3}
     equippedIcon: {fileID: 21300000, guid: f61c7e47a4b113745b2ff8f272e5fb50, type: 3}
     description: Dahong May Kulay
+  - itemName: UsokDahon
+    icon: {fileID: 21300000, guid: 7cd20bfe500f59441929e25642351b2b, type: 3}
+    equippedIcon: {fileID: 21300000, guid: 3c1469d28cc74d64e83088adb71ab13d, type: 3}
+    description: UsokDahon
   - itemName: Kiping
     icon: {fileID: 21300000, guid: 52ec00ce82087b3469d3b5169c731b17, type: 3}
     equippedIcon: {fileID: 21300000, guid: 0dfa854ebc798ef4a9fbf03da896d81a, type: 3}
@@ -53,7 +57,3 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: b432fbb30412e1545b909e29f8c37d72, type: 3}
     equippedIcon: {fileID: 21300000, guid: 2857f131498f7af478167de576241972, type: 3}
     description: BowlGalapong
-  - itemName: Kiko
-    icon: {fileID: 21300000, guid: 4104da7fc57a0f449a8026a770922bc7, type: 3}
-    equippedIcon: {fileID: 21300000, guid: 17296b5674fe7854699be7734eb5671c, type: 3}
-    description: Bigas

@@ -213,6 +213,47 @@ public class HANGERManager : MonoBehaviour
             return;
         }
 
+        // --- Special-case: consume 10 UsokDahon for this interaction ---
+        if (string.Equals(item.itemName, "UsokDahon", StringComparison.OrdinalIgnoreCase))
+        {
+            const int required = 10;
+
+            // make sure player actually has 10
+            if (item.quantity < required)
+            {
+                FloatingNotifier.Instance?.ShowMessage($"You need {required} UsokDahon to do this.", Color.red);
+                onFailedInteraction?.Invoke();
+                return;
+            }
+
+            // consume 10
+            item.quantity -= required;
+            if (item.quantity <= 0)
+                InventoryManager.Instance.items.Remove(item);
+
+            InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
+            // call the interaction outcome explicitly for UsokDahon
+            PerformInteraction("UsokDahon");
+
+            // persist & callbacks (same as the normal flow)
+            SaveLoadManager.Instance?.MarkObjectInteracted(interactableID);
+            SaveLoadManager.Instance?.MarkPickupCollected(interactableID);
+            onSuccessfulInteraction?.Invoke();
+
+            if (disableAfterTrigger)
+            {
+                if (ActivateAfter != null)
+                {
+                    try { ActivateAfter.SetActive(true); }
+                    catch (Exception ex) { Debug.LogWarning($"[HANGERManager] Failed to activate 'ActivateAfter' GameObject: {ex}"); }
+                }
+                gameObject.SetActive(false);
+            }
+
+            // stop further processing (we already handled this interaction)
+            return;
+        }
+
         // Handle consumption / conversion
         if (consumeItem)
         {
@@ -257,6 +298,13 @@ public class HANGERManager : MonoBehaviour
         {
             FloatingNotifier.Instance?.ShowMessage("Hanged leaves.", Color.white);
             BayMan?.Task12();
+        }
+        else if (string.Equals(usedItem, "UsokDahon", StringComparison.OrdinalIgnoreCase))
+        {
+            FloatingNotifier.Instance?.ShowMessage("Hanged smoky leaves.", Color.white);
+            // Trigger a different BayMan task for UsokDahon.
+            // By default call Task13 — change to the correct task if needed.
+            BayMan?.Task17();
         }
         else if (string.Equals(usedItem, "BowlGalapong", StringComparison.OrdinalIgnoreCase))
         {

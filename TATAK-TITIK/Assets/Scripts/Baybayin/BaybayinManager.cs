@@ -22,6 +22,7 @@ public class BaybayinManager : MonoBehaviour
     public GameObject PaintBowl;
     public GameObject GreenLeaves;
     public GameObject PinkLeaves;
+    public GameObject SteamedPink;
 
     public GameObject RiceBowlKALAN;
     public GameObject PaintBowlKALAN;
@@ -118,6 +119,8 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko13Lines = new string[] { "" };
     public string[] Kiko14Lines = new string[] { "" };
     public string[] Kiko15Lines = new string[] { "" };
+    public string[] Kiko16Lines = new string[] { "" };
+    public string[] Kiko17Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -158,11 +161,14 @@ public class BaybayinManager : MonoBehaviour
 
     JournalTriggerEntry[] Kiko11Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "pintura", displayWord = "ᜉᜒᜈ᜔ᜆᜓᜇ"}};
-    
+
     JournalTriggerEntry[] Kiko15Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "usok", displayWord = "ᜂᜐᜓᜃ᜔"},
         new JournalTriggerEntry { key = "tigas", displayWord = "ᜄᜎᜉᜓᜅ᜔"}};
-    
+
+    JournalTriggerEntry[] Kiko17Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "baliskog", displayWord = "ᜊᜎᜒᜐ᜔ᜃᜓᜄ᜔"}};
+
     private void OnEnable()
     {
         DNC.SetTimeOfDay(22f, 2f);
@@ -464,7 +470,16 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task14":
+                PinkLeaves.SetActive(false);
                 break;
+
+            case "task15":
+                break;
+            
+            case "task16":
+                SteamedPink.SetActive(true);
+                break;
+            
             default:
                 Debug.Log($"[BaybayinManager] ApplyTaskEffects: no explicit handler for '{taskName}'.");
                 break;
@@ -549,7 +564,7 @@ public class BaybayinManager : MonoBehaviour
                 }
                 break;
 
-            case "task8":  
+            case "task8":
                 DNC.SetTimeOfDay(6f, 40f);
                 Kiko.EnqueueDestination(waypoints[18]);
                 Kiko.ChangeNPCID("Kiko8", false);
@@ -593,21 +608,31 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.ChangeNPCID("Kiko13", false);
                 Kiko.SetDialogueLines(Kiko13Lines);
                 break;
-            
+
             case "task14":
                 PinkLeaves.SetActive(true);
                 Kiko.ChangeNPCID("Kiko14", false);
                 Kiko.SetDialogueLines(Kiko14Lines);
                 break;
-            
+
             case "task15":
                 DNC.SetTimeOfDay(10f, 5f);
-                PinkLeaves.SetActive(false);
+                Kiko.ChangeNPCID("Kiko15", false);
+                Kiko.SetDialogueLines(Kiko15Lines);
+                Kiko.SetJournalEntries(Kiko15Journal);
+                Kiko.EnqueueDestination(waypoints[21]);
                 break;
-            
+
             case "task16":
-                PinkLeaves.SetActive(true);
+                DNC.SetTimeOfDay(11f, 20f);
+                Kiko.ChangeNPCID("Kiko16", false);
+                Kiko.SetDialogueLines(Kiko16Lines);
+                Kiko.EnqueueDestination(waypoints[20]);
                 break;
+
+            case "task17":
+                break;
+
 
             default:
                 Debug.Log($"[BaybayinManager] ApplyStartEffects: no explicit handler for '{taskName}'.");
@@ -1019,12 +1044,30 @@ public class BaybayinManager : MonoBehaviour
     {
         DNC.SetTimeOfDay(10f, 5f);
         Debug.Log("Task 15 time");
-        Kiko.ChangeNPCID("Kiko14", false);
+        Kiko.ChangeNPCID("Kiko15", false);
         Kiko.SetDialogueLines(Kiko15Lines);
         Kiko.SetJournalEntries(Kiko15Journal);
         Kiko.PlayDialogue("KIKO", Kiko15Lines, Kiko15Journal);
         Kiko.EnqueueDestination(waypoints[21]);
         MarkTaskCompleted("task14");
         MarkTaskStarted("task15");
+    }
+    public void Task16()
+    {
+        DNC.SetTimeOfDay(11f, 20f);
+        Debug.Log("Task 16 time");
+        Kiko.ChangeNPCID("Kiko16", false);
+        Kiko.SetDialogueLines(Kiko16Lines);
+        Kiko.PlayDialogue("KIKO");
+        Kiko.EnqueueDestination(waypoints[20]);
+        MarkTaskCompleted("task15");
+        MarkTaskStarted("task16");
+    }
+
+    public void Task17()
+    {
+        Debug.Log("Task 17 time");
+        MarkTaskCompleted("task16");
+        MarkTaskStarted("task17");
     }
 }
