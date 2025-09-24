@@ -931,5 +931,21 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task11");
     }
 
-    public void Task12() { }
+    public void Task12()
+    {
+
+    }
+    public void Task13()
+    {
+
+    }
+
+    public void Task14()
+    {
+
+    }
+    public void Task15()
+    {
+        
+    }
 }
