@@ -34,8 +34,6 @@ public class HANGERManager : MonoBehaviour
     [Header("References")]
     public BaybayinManager BayMan;
     public GameObject ActivateAfter;
-    public Animator hangerAnimator; // optional animator to play a hang animation
-    public string hangAnimationTrigger = "Hang";
 
     // runtime
     private bool playerNearby = false;
@@ -193,14 +191,6 @@ public class HANGERManager : MonoBehaviour
                 InventoryManager.Instance.items.Remove(item);
 
             InventoryManager.Instance.inventoryUI?.UpdateInventoryUI();
-
-            // optional animator
-            if (hangerAnimator != null)
-            {
-                try { hangerAnimator.SetTrigger(hangAnimationTrigger); }
-                catch (Exception ex) { Debug.LogWarning($"[HANGERManager] Failed to trigger animator: {ex}"); }
-            }
-
             // call the interaction outcome explicitly for Dahon
             PerformInteraction("Dahon");
 

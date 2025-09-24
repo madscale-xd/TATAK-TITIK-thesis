@@ -133,8 +133,21 @@ public class DialogueManager : MonoBehaviour
 
     public void ShowPromptFor(NPCDialogueTrigger npc)
     {
+        if (npc == null) return;
+
+        // If a dialogue is currently visible, do not change prompt state or reset UI.
+        // This prevents other NPC triggers from interrupting an in-progress dialogue.
+        if (dialogueVisible)
+        {
+            // Optional: if you still want to update which NPC is 'currentNPC' while dialogue is visible,
+            // do so carefully, but do NOT call ResetDialogueState() because it will cancel the active dialogue.
+            // currentNPC = npc; // <-- don't do this by default
+            return;
+        }
+
+        // Normal behaviour when no dialogue is active:
         currentNPC = npc;
-        ResetDialogueState();  // clear old stuff on new NPC enter
+        ResetDialogueState();  // safe here because there's no active dialogue
         if (pressEPromptGroup != null)
             promptFadeCoroutine = StartCoroutine(FadeCanvasGroup(pressEPromptGroup, 1, true));
     }
