@@ -298,6 +298,11 @@ public class BaybayinManager : MonoBehaviour
             Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko20");
             Task23();
         }
+        if (!string.IsNullOrWhiteSpace("Kiko22") && string.Equals("Kiko22", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko22");
+            Task26();
+        }
     }
 
     /// <summary>
@@ -536,8 +541,11 @@ public class BaybayinManager : MonoBehaviour
             case "task21":
                 break;
             case "task22":
+                SteamedPink.SetActive(false);
+                Kipings.SetActive(true);
                 break;
             case "task23":
+                Kipings.SetActive(false);
                 break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyTaskEffects: no explicit handler for '{taskName}'.");
@@ -695,6 +703,7 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.ChangeNPCID("Kiko17", false);
                 Kiko.SetDialogueLines(Kiko17Lines);
                 Kiko.SetJournalEntries(Kiko17Journal);
+                Kiko.EnqueueDestination(waypoints[22]);
                 break;
             case "task18":
                 Kiko.ChangeNPCID("Kiko18", false);
@@ -719,8 +728,23 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.SetDialogueLines(Kiko20Lines);
                 break;
             case "task23":
-                 DNC.SetTimeOfDay(14f, 10f);
+                DNC.SetTimeOfDay(14f, 10f);
                 Kiko.EnqueueDestination(waypoints[20]);
+                break;
+            case "task24":
+                Kiko.EnqueueDestination(waypoints[5]);
+                Kiko.SetDialogueLines(Kiko21Lines);
+                break;
+            case "task25":
+                Kiko.ChangeNPCID("Kiko22", false);
+                Kiko.SetDialogueLines(Kiko22Lines);
+                break;
+            case "task26":
+                break;
+            case "task27":
+                Kiko.EnqueueDestination(waypoints[18]);
+                Babaylan.EnqueueDestination(waypoints[16]);
+                DNC.SetTimeOfDay(2f, 10f);
                 break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyStartEffects: no explicit handler for '{taskName}'.");
@@ -1217,4 +1241,54 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskCompleted("task22");
         MarkTaskStarted("task23");
     }
+
+    public void Task24()    //get kipingx5
+    {
+        Debug.Log("Task 24 time");
+        Kiko.EnqueueDestination(waypoints[5]);
+        Kiko.ChangeNPCID("Kiko21", false);
+        Kiko.SetDialogueLines(Kiko21Lines);
+        Kiko.PlayDialogue("KIKO");
+        MarkTaskCompleted("task23");
+        MarkTaskStarted("task24");
+    }
+
+    public void Task25()    //change dialogue on getting to BaylanHut
+    {
+        Debug.Log("Task 25 time");
+        Kiko.ChangeNPCID("Kiko22", false);
+        Kiko.SetDialogueLines(Kiko22Lines);
+        MarkTaskCompleted("task24");
+        MarkTaskStarted("task25");
+    }
+
+    public void Task26()    //Kiko x Baylan exchange
+    {
+        Debug.Log("Task 26 time");
+        Babaylan.EnqueueDestination(waypoints[13]);
+        Babaylan.ChangeNPCID("Babaylan6", false);
+        Babaylan.SetDialogueLines(Babaylan6Lines);
+        Babaylan.PlayDialogue("BABAYLAN");
+
+        Kiko.ChangeNPCID("Kiko23", false);
+        Kiko.SetDialogueLines(Kiko23Lines);
+        Kiko.PlayDialogue("KIKO");
+
+        Babaylan.ChangeNPCID("Babaylan7", false);
+        Babaylan.SetDialogueLines(Babaylan7Lines);
+        Babaylan.PlayDialogue("BABAYLAN");
+
+        MarkTaskCompleted("task25");
+        MarkTaskStarted("task26");
+    }
+
+    public void Task27()        //Kiko going home when eepy eeps, MORNING
+    {
+        Debug.Log("Task 27 time");
+        Kiko.EnqueueDestination(waypoints[18]);
+        Babaylan.EnqueueDestination(waypoints[16]);
+        MarkTaskCompleted("task26");
+        MarkTaskStarted("task27");
+    }
+
 }
