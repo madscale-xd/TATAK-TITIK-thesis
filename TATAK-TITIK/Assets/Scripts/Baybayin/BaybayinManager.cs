@@ -30,7 +30,11 @@ public class BaybayinManager : MonoBehaviour
     public GameObject GalapongBowlKALAN;
     public GameObject HANGERHarvest;
     public GameObject SumanGroup;
-    public GameObject DanceGroup;
+    public GameObject Bed1;
+    public GameObject Bed2;
+
+
+    public GameObject Task28Trigger;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -133,6 +137,11 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko23Lines = new string[] { "" };
     public string[] Babaylan7Lines = new string[] { "" };
 
+    //Act 3
+    public string[] Babaylan8Lines = new string[] { "" };
+    public string[] Kiko24Lines = new string[] { "" };
+    public string[] Kiko25Lines = new string[] { "" };
+
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "Mayohan", displayWord = "ᜋᜌᜓᜑᜈ᜔"}
@@ -183,6 +192,10 @@ public class BaybayinManager : MonoBehaviour
         new JournalTriggerEntry { key = "suman", displayWord = "ᜐᜓᜋᜈ᜔"}};
     JournalTriggerEntry[] Kiko19Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "sayaw", displayWord = "ᜐᜌᜏ᜔"}};
+    JournalTriggerEntry[] Kiko24Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "hamog", displayWord = "ᜑᜋᜓᜄ᜔"}};
+    JournalTriggerEntry[] Kiko25Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "paypay", displayWord = "ᜉᜌ᜔ᜉᜌ᜔"}};
 
     private void OnEnable()
     {
@@ -589,6 +602,9 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task2":
+                Babaylan.ChangeNPCID("Babaylan4",false);
+                demRef?.AddToTriggeredList("BABAYLAN");
+                Bed1.SetActive(true);
                 break;
 
             case "task3":
@@ -724,6 +740,7 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.EnqueueDestination(waypoints[9]);
                 break;
             case "task22":
+        
                 Kiko.ChangeNPCID("Kiko20", false);
                 Kiko.SetDialogueLines(Kiko20Lines);
                 break;
@@ -740,11 +757,27 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.SetDialogueLines(Kiko22Lines);
                 break;
             case "task26":
+                Babaylan.ChangeNPCID("Babaylan7",false);
+                demRef?.AddToTriggeredList("BABAYLAN");
+                Bed2.SetActive(true);
+                Debug.Log("Babaylan7added");
                 break;
             case "task27":
                 Kiko.EnqueueDestination(waypoints[18]);
                 Babaylan.EnqueueDestination(waypoints[16]);
                 DNC.SetTimeOfDay(2f, 10f);
+                break;
+            case "task28":
+                Task28Trigger.SetActive(true);
+                Babaylan.ChangeNPCID("Babaylan8", false);
+                Babaylan.SetDialogueLines(Babaylan8Lines);
+                Babaylan.EnqueueDestination(waypoints[13]);
+                Babaylan.EnqueueDestination(waypoints[9]);
+                Kiko.EnqueueDestination(waypoints[9]);
+                break;
+            case "task29":
+                break;
+            case "task30":
                 break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyStartEffects: no explicit handler for '{taskName}'.");
@@ -1291,4 +1324,22 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task27");
     }
 
+    public void Task28()        //Stepped into hamogtrigger
+    {
+        Debug.Log("Task 28 time");
+        Babaylan.ChangeNPCID("Babaylan8", false);
+        Babaylan.SetDialogueLines(Babaylan8Lines);
+        Babaylan.PlayDialogue("BABAYLAN");
+        Babaylan.EnqueueDestination(waypoints[13]);
+        Babaylan.EnqueueDestination(waypoints[9]);
+        Kiko.EnqueueDestination(waypoints[9]);
+        MarkTaskCompleted("task27");
+        MarkTaskStarted("task28");
+    }
+    public void Task29()
+    {
+        Debug.Log("Task 29 time");
+        MarkTaskCompleted("task28");
+        MarkTaskStarted("task29");
+    }
 }
