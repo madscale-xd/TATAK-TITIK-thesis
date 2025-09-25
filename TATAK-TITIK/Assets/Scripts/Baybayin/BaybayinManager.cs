@@ -32,9 +32,9 @@ public class BaybayinManager : MonoBehaviour
     public GameObject SumanGroup;
     public GameObject Bed1;
     public GameObject Bed2;
-
-
     public GameObject Task28Trigger;
+    public HamogManager Hamorger;
+    public GameObject KIKOHarvest;
 
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
@@ -141,6 +141,7 @@ public class BaybayinManager : MonoBehaviour
     public string[] Babaylan8Lines = new string[] { "" };
     public string[] Kiko24Lines = new string[] { "" };
     public string[] Kiko25Lines = new string[] { "" };
+    public string[] KikoFinalLine = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -602,7 +603,7 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task2":
-                Babaylan.ChangeNPCID("Babaylan4",false);
+                Babaylan.ChangeNPCID("Babaylan4", false);
                 demRef?.AddToTriggeredList("BABAYLAN");
                 Bed1.SetActive(true);
                 break;
@@ -740,7 +741,7 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.EnqueueDestination(waypoints[9]);
                 break;
             case "task22":
-        
+
                 Kiko.ChangeNPCID("Kiko20", false);
                 Kiko.SetDialogueLines(Kiko20Lines);
                 break;
@@ -757,7 +758,7 @@ public class BaybayinManager : MonoBehaviour
                 Kiko.SetDialogueLines(Kiko22Lines);
                 break;
             case "task26":
-                Babaylan.ChangeNPCID("Babaylan7",false);
+                Babaylan.ChangeNPCID("Babaylan7", false);
                 demRef?.AddToTriggeredList("BABAYLAN");
                 Bed2.SetActive(true);
                 Debug.Log("Babaylan7added");
@@ -768,16 +769,32 @@ public class BaybayinManager : MonoBehaviour
                 DNC.SetTimeOfDay(2f, 10f);
                 break;
             case "task28":
+                Hamorger.FadeCanvasToAlpha(75, 45);
                 Task28Trigger.SetActive(true);
+                DNC.SetTimeOfDay(5f, 10f);
                 Babaylan.ChangeNPCID("Babaylan8", false);
                 Babaylan.SetDialogueLines(Babaylan8Lines);
                 Babaylan.EnqueueDestination(waypoints[13]);
-                Babaylan.EnqueueDestination(waypoints[9]);
-                Kiko.EnqueueDestination(waypoints[9]);
+                Babaylan.EnqueueDestination(waypoints[23]);
+                Kiko.EnqueueDestination(waypoints[24]);
                 break;
             case "task29":
+                Hamorger.FadeCanvasToAlpha(75, 15);
+                DNC.SetTimeOfDay(5f, 10f);
+                KIKOHarvest.SetActive(true);
+                Kiko.ChangeNPCID("Kiko24", false);
+                Kiko.SetDialogueLines(Kiko24Lines);
+                Kiko.SetJournalEntries(Kiko24Journal);
                 break;
             case "task30":
+                DNC.SetTimeOfDay(7f, 10f);
+                KIKOHarvest.SetActive(true);
+                break;
+            case "finaltask":
+                Kiko.SetDialogueLines(KikoFinalLine);
+                MarkTaskCompleted("task30");
+                MarkTaskStarted("finaltask");
+                DNC.autoRotate = true;
                 break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyStartEffects: no explicit handler for '{taskName}'.");
@@ -1326,20 +1343,47 @@ public class BaybayinManager : MonoBehaviour
 
     public void Task28()        //Stepped into hamogtrigger
     {
+        DNC.SetTimeOfDay(5f, 10f);
+        Hamorger.FadeCanvasToAlpha(75, 45);
         Debug.Log("Task 28 time");
         Babaylan.ChangeNPCID("Babaylan8", false);
         Babaylan.SetDialogueLines(Babaylan8Lines);
         Babaylan.PlayDialogue("BABAYLAN");
         Babaylan.EnqueueDestination(waypoints[13]);
-        Babaylan.EnqueueDestination(waypoints[9]);
-        Kiko.EnqueueDestination(waypoints[9]);
+        Babaylan.EnqueueDestination(waypoints[23]);
+        Kiko.EnqueueDestination(waypoints[24]);
         MarkTaskCompleted("task27");
         MarkTaskStarted("task28");
     }
-    public void Task29()
+    public void Task29()    //Dialog change for when Kiko reaches Baliskog n u talk him
     {
         Debug.Log("Task 29 time");
+        Hamorger.FadeCanvasToAlpha(75, 15);
+        Kiko.ChangeNPCID("Kiko24", false);
+        Kiko.SetDialogueLines(Kiko24Lines);
+        Kiko.SetJournalEntries(Kiko24Journal);
         MarkTaskCompleted("task28");
         MarkTaskStarted("task29");
+    }
+
+    public void Task30()    //LAST dialog - when receiving paypay from Kiko
+    {
+        Debug.Log("Task 30 time");
+        Kiko.ChangeNPCID("Kiko25", false);
+        Kiko.SetDialogueLines(Kiko25Lines);
+        Kiko.SetJournalEntries(Kiko25Journal);
+        Kiko.PlayDialogue("KIKO", Kiko25Lines, Kiko25Journal);
+        MarkTaskCompleted("task29");
+        MarkTaskStarted("task30");
+    }
+
+    public void FinalTask()
+    {
+        Debug.Log("Final Task time.");
+        Kiko.SetDialogueLines(KikoFinalLine);
+        Kiko.PlayDialogue("KIKO");
+        MarkTaskCompleted("task30");
+        MarkTaskStarted("finaltask");
+        DNC.autoRotate = true;
     }
 }
