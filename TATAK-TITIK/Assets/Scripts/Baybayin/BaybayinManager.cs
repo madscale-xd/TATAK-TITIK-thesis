@@ -29,6 +29,8 @@ public class BaybayinManager : MonoBehaviour
     public GameObject GalapongBowlKALAN;
     public GameObject HANGERHarvest;
 
+    public GameObject DanceGroup;
+
     [Header("Optional: final move target (not required)")]
     [Tooltip("Optional world-space Transform. If assigned it will be enqueued AFTER the waypoints; otherwise only waypoints are used.")]
     public Transform moveTarget;
@@ -525,7 +527,7 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task3":
-                DNC.SetTimeOfDay(2f, 30f);
+                DNC.SetTimeOfDay(2f, 10f);
                 if (Sombrero != null) Sombrero.SetActive(true);
                 break;
 
@@ -738,7 +740,7 @@ public class BaybayinManager : MonoBehaviour
         {
             try
             {
-                DNC.SetTimeOfDay(2f, 30f);
+                DNC.SetTimeOfDay(2f, 10f);
                 Debug.Log("[BaybayinManager] MarkTask2Completed: advanced time to morning (8:00).");
                 MagsasakaObj.SetActive(true);
             }
@@ -1052,7 +1054,7 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskCompleted("task14");
         MarkTaskStarted("task15");
     }
-    public void Task16()
+    public void Task16()    //hang leaves again
     {
         DNC.SetTimeOfDay(11f, 20f);
         Debug.Log("Task 16 time");
@@ -1064,7 +1066,7 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task16");
     }
 
-    public void Task17()
+    public void Task17()    //explore
     {
         Debug.Log("Task 17 time");
         MarkTaskCompleted("task16");

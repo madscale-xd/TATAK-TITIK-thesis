@@ -1,10 +1,26 @@
+using System;
 using System.Collections;
+using System.Reflection;
 using UnityEngine;
 
+/// <summary>
+/// Robust WizardTowerManager — full script:
+/// - Inspector-first wizard selection
+/// - Waits for NPC to be idle before swapping NPC ID or dialogue lines (prevents mid-dialogue replacement)
+/// - Polls/subscribes to DialogueEventsManager, JournalAvailability, PortalAvailability
+/// - Persists portal activation via SaveLoadManager
+/// - Reflection-friendly to handle different DEM signatures
+/// </summary>
 public class WizardTowerManager : MonoBehaviour
 {
-    [Tooltip("Name of the Wizard GameObject in the scene (or leave empty to search by tag).")]
+    [Header("Wizard selection (Inspector-first)")]
+    [Tooltip("Prefer assigning the Wizard GameObject directly in the inspector.")]
+    public GameObject wizardGameObject;
+
+    [Tooltip("Fallback: name used to Find wizard when inspector slot is empty.")]
     public string wizardGameObjectName = "Wizard";
+
+    [Tooltip("Fallback: tag used to Find wizard if name lookup fails.")]
     public string wizardTag = "";
 
     [Header("Journal")]
@@ -41,52 +57,65 @@ public class WizardTowerManager : MonoBehaviour
     [Tooltip("Optional unique ID used to persist the portal's activated state. If left empty the manager will generate one using scene + wizard name.")]
     public string portalPersistID = "";
 
+    [Header("Optional: inspector-assignable PortalAvailability (fallbacks to PortalAvailability.Instance if null)")]
+    public PortalAvailability portalAvailability;
+
     [Header("Polling fallback")]
     public float pollInterval = 0.25f;
+
+    [Header("Idle-wait settings")]
+    [Tooltip("How long (seconds) to wait for the NPC to finish speaking before forcing the change.")]
+    public float idleWaitTimeout = 10f;
 
     // -----------------------
     // internal state flags
     // -----------------------
-    // first-phase (Wizard1 -> Wizard2)
     private bool wizardTriggered = false;   // DEM reported requiredNPCID triggered
     private bool journalAcquired = false;   // JournalAvailability says available
     private bool idChanged = false;         // we've already changed the NPC id after journal
     private bool journalActivated = false;  // journal GameObject already activated
 
-    // second-phase (Wizard2 -> Wizard3 / portal)
     private bool wizard2Triggered = false;  // DEM reported requiredNPCID2 triggered
     private bool portalAcquired = false;    // PortalAvailability says available (e.g. collected)
     private bool idChangedTo3 = false;      // we've already changed the NPC id to Wizard3
     private bool portalActivated = false;   // portal GameObject already activated (visible)
-    public PortalAvailability portalAvailability;
 
-    // NEW: track whether the player has actually opened/interacted with the Journal UI
+    // track whether player opened the Journal UI (we require this before showing portal)
     private bool journalInteracted = false;
+
+    // subscription bookkeeping
+    private bool subscribedToDEM = false;
+    private bool subscribedToJournalAvailability = false;
+    private bool subscribedToPortalAvailability = false;
+
+    [Header("Optional: assign DEM directly (otherwise polls DialogueEventsManager.Instance)")]
+    public DialogueEventsManager DEM;
 
     private void Start()
     {
-        // Subscribe to DEM (if present) so we can react immediately when NPC dialogs are marked triggered.
-        if (DialogueEventsManager.Instance != null)
+        // DialogueEventsManager subscription (immediate or poll)
+        if (DEM != null)
         {
-            DialogueEventsManager.Instance.OnTriggeredAdded += HandleTriggeredAdded;
+            DEM.OnTriggeredAdded += HandleTriggeredAdded;
+            subscribedToDEM = true;
 
-            // If DEM already has either id triggered (e.g., loading after save), treat as triggered now
-            if (DialogueEventsManager.Instance.IsTriggered(requiredNPCID))
+            // handle already-triggered state
+            if (DEM.IsTriggered(requiredNPCID))
                 OnWizardTriggered();
 
-            if (DialogueEventsManager.Instance.IsTriggered(requiredNPCID2))
+            if (DEM.IsTriggered(requiredNPCID2))
                 OnWizard2Triggered();
         }
         else
         {
-            // fallback: poll until DEM exists, then check
             StartCoroutine(PollForDEMInitial());
         }
 
-        // Subscribe to JournalAvailability (if present)
+        // JournalAvailability subscription
         if (JournalAvailability.Instance != null)
         {
             JournalAvailability.Instance.OnAvailabilityChanged += HandleJournalAvailabilityChanged;
+            subscribedToJournalAvailability = true;
             journalAcquired = JournalAvailability.Instance.IsAvailable();
         }
         else
@@ -94,10 +123,16 @@ public class WizardTowerManager : MonoBehaviour
             StartCoroutine(PollForJournalAvailability());
         }
 
-        // Subscribe to PortalAvailability (if present)
+        // PortalAvailability: prefer inspector-assigned instance, otherwise try to find singleton
+        if (portalAvailability == null)
+        {
+            TryPickPortalAvailabilitySingleton();
+        }
+
         if (portalAvailability != null)
         {
             portalAvailability.OnAvailabilityChanged += HandlePortalAvailabilityChanged;
+            subscribedToPortalAvailability = true;
             portalAcquired = portalAvailability.IsAvailable();
         }
         else
@@ -109,32 +144,40 @@ public class WizardTowerManager : MonoBehaviour
         StartCoroutine(MonitorPortalGameObjectActive());
         StartCoroutine(MonitorJournalInteraction());
 
-        // Restore persisted portal state (if any) and then finalize startup state.
+        // Restore persisted portal state (safe to wait for SaveLoadManager)
         StartCoroutine(ApplySavedPortalState());
     }
 
     private void OnDestroy()
     {
-        if (DialogueEventsManager.Instance != null)
-            DialogueEventsManager.Instance.OnTriggeredAdded -= HandleTriggeredAdded;
-        if (JournalAvailability.Instance != null)
+        if (DEM != null && subscribedToDEM)
+            DEM.OnTriggeredAdded -= HandleTriggeredAdded;
+
+        if (JournalAvailability.Instance != null && subscribedToJournalAvailability)
             JournalAvailability.Instance.OnAvailabilityChanged -= HandleJournalAvailabilityChanged;
-        if (portalAvailability != null)
+
+        if (portalAvailability != null && subscribedToPortalAvailability)
             portalAvailability.OnAvailabilityChanged -= HandlePortalAvailabilityChanged;
     }
 
-    // Fallback pollers in case singletons are created after this object
+    // -----------------------------
+    // Pollers for late-initialized singletons
+    // -----------------------------
     private IEnumerator PollForDEMInitial()
     {
-        while (DialogueEventsManager.Instance == null)
+        while (DEM == null)
+        {
+            DEM = DialogueEventsManager.Instance;
             yield return null;
+        }
 
-        DialogueEventsManager.Instance.OnTriggeredAdded += HandleTriggeredAdded;
+        DEM.OnTriggeredAdded += HandleTriggeredAdded;
+        subscribedToDEM = true;
 
-        if (DialogueEventsManager.Instance.IsTriggered(requiredNPCID))
+        if (DEM.IsTriggered(requiredNPCID))
             OnWizardTriggered();
 
-        if (DialogueEventsManager.Instance.IsTriggered(requiredNPCID2))
+        if (DEM.IsTriggered(requiredNPCID2))
             OnWizard2Triggered();
     }
 
@@ -144,35 +187,59 @@ public class WizardTowerManager : MonoBehaviour
             yield return null;
 
         JournalAvailability.Instance.OnAvailabilityChanged += HandleJournalAvailabilityChanged;
+        subscribedToJournalAvailability = true;
         journalAcquired = JournalAvailability.Instance.IsAvailable();
     }
 
     private IEnumerator PollForPortalAvailability()
     {
         while (portalAvailability == null)
-            yield return null;
+        {
+            TryPickPortalAvailabilitySingleton();
+            yield return new WaitForSeconds(pollInterval);
+        }
 
-        portalAvailability.OnAvailabilityChanged += HandlePortalAvailabilityChanged;
-        portalAcquired = portalAvailability.IsAvailable();
+        if (portalAvailability != null)
+        {
+            portalAvailability.OnAvailabilityChanged += HandlePortalAvailabilityChanged;
+            subscribedToPortalAvailability = true;
+            portalAcquired = portalAvailability.IsAvailable();
+        }
     }
 
-    // Persisted portal helper: determine ID
+    private void TryPickPortalAvailabilitySingleton()
+    {
+        try
+        {
+            var instProp = typeof(PortalAvailability).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
+            if (instProp != null)
+            {
+                var inst = instProp.GetValue(null) as PortalAvailability;
+                if (inst != null)
+                    portalAvailability = inst;
+            }
+        }
+        catch { /* ignore reflection errors */ }
+    }
+
+    // -----------------------------
+    // Persistence helpers
+    // -----------------------------
     private string GetPortalID()
     {
         if (!string.IsNullOrWhiteSpace(portalPersistID))
             return portalPersistID;
 
-        return gameObject.scene.name + "_" + wizardGameObjectName + "_portal";
+        string baseName = wizardGameObject != null ? wizardGameObject.name : (string.IsNullOrWhiteSpace(wizardGameObjectName) ? "Wizard" : wizardGameObjectName);
+        return gameObject.scene.name + "_" + baseName + "_portal";
     }
 
-    // When the portal is activated during gameplay, persist that fact so it will be re-applied on load.
     private void PersistPortalActivated()
     {
         string id = GetPortalID();
         if (SaveLoadManager.Instance != null)
         {
             SaveLoadManager.Instance.MarkObjectInteracted(id);
-            // Optionally save immediately to ensure persistence; comment out if you prefer batch saves.
             SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
             Debug.Log($"[WizardTowerManager] Persisted portal activation with id='{id}'.");
         }
@@ -182,10 +249,8 @@ public class WizardTowerManager : MonoBehaviour
         }
     }
 
-    // Apply saved portal state on startup (safe to wait until SaveLoadManager exists)
     private IEnumerator ApplySavedPortalState()
     {
-        // Wait for SaveLoadManager to initialize (if present)
         while (SaveLoadManager.Instance == null)
             yield return null;
 
@@ -199,8 +264,7 @@ public class WizardTowerManager : MonoBehaviour
                 Debug.Log($"[WizardTowerManager] Re-applied persisted portal activation from save (id='{id}').");
             }
 
-            // If DEM already marked Wizard2 triggered, ensure we progress with the ID bump when appropriate.
-            if (DialogueEventsManager.Instance != null && DialogueEventsManager.Instance.IsTriggered(requiredNPCID2))
+            if (DEM != null && DEM.IsTriggered(requiredNPCID2))
             {
                 wizard2Triggered = true;
                 TryChangeWizard2Id();
@@ -208,15 +272,15 @@ public class WizardTowerManager : MonoBehaviour
         }
     }
 
-    // Watches the portalGameObject and detects when it becomes active in the scene.
-    // This ensures we treat "portal activation (appearance)" separately from "portal acquired/used".
+    // -----------------------------
+    // Watchers
+    // -----------------------------
     private IEnumerator MonitorPortalGameObjectActive()
     {
-        // Wait until a portal GameObject is assigned in the inspector (or becomes available)
+        // wait until portalGameObject assigned
         while (portalGameObject == null)
             yield return null;
 
-        // Track activation changes
         bool lastActive = portalGameObject.activeInHierarchy;
         if (lastActive && !portalActivated)
         {
@@ -230,13 +294,9 @@ public class WizardTowerManager : MonoBehaviour
             bool currentActive = portalGameObject.activeInHierarchy;
             if (currentActive && !lastActive)
             {
-                // portal just became active
                 portalActivated = true;
                 Debug.Log("[WizardTowerManager] Detected portal GameObject activation (became active in scene).");
-
-                // Persist this activation so it remains after saving/loading
                 PersistPortalActivated();
-
                 TryChangeWizard2Id();
             }
 
@@ -245,11 +305,29 @@ public class WizardTowerManager : MonoBehaviour
         }
     }
 
-    // NEW: Watch the SceneButtonManager -> JournalPanel to detect when the player opens the journal UI.
-    // The user asked that the portal only appears after the player has actually interacted with their journal UI.
+    // robust getter for SceneButtonManager.JournalPanel (field or property)
+    private GameObject GetJournalPanelFromSBM(SceneButtonManager sbm)
+    {
+        if (sbm == null) return null;
+        Type t = sbm.GetType();
+
+        var fi = t.GetField("JournalPanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (fi != null)
+        {
+            try { return fi.GetValue(sbm) as GameObject; } catch { }
+        }
+
+        var pi = t.GetProperty("JournalPanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (pi != null)
+        {
+            try { return pi.GetValue(sbm) as GameObject; } catch { }
+        }
+
+        return null;
+    }
+
     private IEnumerator MonitorJournalInteraction()
     {
-        // Wait until SceneButtonManager exists in the scene
         SceneButtonManager sbm = null;
         while (sbm == null)
         {
@@ -257,32 +335,20 @@ public class WizardTowerManager : MonoBehaviour
             yield return null;
         }
 
-        // If the JournalPanel reference is not assigned on the manager, we can't watch it; bail with a warning
-        var journalPanelField = sbm.GetType().GetField("JournalPanel");
-        if (journalPanelField == null)
-        {
-            Debug.LogWarning("[WizardTowerManager] MonitorJournalInteraction: SceneButtonManager doesn't expose a public JournalPanel field.");
-            yield break;
-        }
-
-        GameObject journalPanel = journalPanelField.GetValue(sbm) as GameObject;
+        var journalPanel = GetJournalPanelFromSBM(sbm);
         if (journalPanel == null)
         {
-            Debug.LogWarning("[WizardTowerManager] MonitorJournalInteraction: JournalPanel reference is null on SceneButtonManager.");
+            Debug.LogWarning("[WizardTowerManager] MonitorJournalInteraction: Could not find JournalPanel on SceneButtonManager (field/property).");
             yield break;
         }
 
         bool lastActive = journalPanel.activeInHierarchy;
-        // If it is already active at start, mark interaction immediately
         if (lastActive && !journalInteracted)
         {
             journalInteracted = true;
             Debug.Log("[WizardTowerManager] Detected JournalPanel already active at start; marking journalInteracted.");
-            // If Wizard2 was already triggered, activating the portal may be desired now
             if (wizard2Triggered && !portalActivated)
-            {
                 ActivatePortalAndTryChange();
-            }
         }
 
         while (true)
@@ -290,15 +356,11 @@ public class WizardTowerManager : MonoBehaviour
             bool currentActive = journalPanel.activeInHierarchy;
             if (currentActive && !lastActive)
             {
-                // Player just opened the journal UI
                 journalInteracted = true;
                 Debug.Log("[WizardTowerManager] Player opened the Journal UI — marking journalInteracted.");
 
-                // Only activate portal if the player has already triggered Wizard2 (talked to Wizard2)
                 if (wizard2Triggered && !portalActivated)
-                {
                     ActivatePortalAndTryChange();
-                }
             }
 
             lastActive = currentActive;
@@ -306,7 +368,9 @@ public class WizardTowerManager : MonoBehaviour
         }
     }
 
-    // DEM event handler
+    // -----------------------------
+    // DEM handler
+    // -----------------------------
     private void HandleTriggeredAdded(string id)
     {
         Debug.Log($"[WizardTowerManager] HandleTriggeredAdded received id='{id}' (watching for '{requiredNPCID}' and '{requiredNPCID2}')");
@@ -317,13 +381,14 @@ public class WizardTowerManager : MonoBehaviour
             OnWizard2Triggered();
     }
 
-    // --------------------
-    // Wizard1 -> Journal -> Wizard2 flow
-    // --------------------
+    // -----------------------------
+    // Wizard1 -> Journal -> Wizard2
+    // -----------------------------
     private void OnWizardTriggered()
     {
         if (wizardTriggered) return;
         wizardTriggered = true;
+        Debug.Log("[WizardTowerManager] OnWizardTriggered: handling requiredNPCID.");
 
         if (!journalActivated && journalGameObject != null)
         {
@@ -333,9 +398,7 @@ public class WizardTowerManager : MonoBehaviour
         }
 
         if (journalAcquired)
-        {
             ChangeNPCIdIfNeeded();
-        }
     }
 
     private void HandleJournalAvailabilityChanged(bool available)
@@ -343,107 +406,318 @@ public class WizardTowerManager : MonoBehaviour
         if (!available) return;
 
         journalAcquired = true;
+        Debug.Log("[WizardTowerManager] HandleJournalAvailabilityChanged: journal became available.");
 
         if (wizardTriggered)
-        {
             ChangeNPCIdIfNeeded();
+    }
+
+    // -----------------------------
+    // NEW: Wait-for-idle helpers to avoid mid-dialogue swaps
+    // -----------------------------
+    // Best-effort detection: check common boolean indicators on NPCDialogueTrigger via reflection.
+    private bool IsNPCInDialogue(NPCDialogueTrigger trigger)
+    {
+        if (trigger == null) return false;
+
+        Type t = trigger.GetType();
+
+        // Common property/field/method names that indicate "in dialogue"
+        string[] idleIndicatorNames = new string[]
+        {
+            "IsTalking", "isTalking",
+            "IsInDialogue", "isInDialogue",
+            "IsDialogueActive", "isDialogueActive",
+            "DialogueActive", "dialogueActive",
+            "IsPlaying", "isPlaying",
+            "IsActiveDialogue", "isActiveDialogue",
+            "IsSpeaking", "isSpeaking"
+        };
+
+        foreach (var name in idleIndicatorNames)
+        {
+            // property
+            var pi = t.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (pi != null && pi.PropertyType == typeof(bool))
+            {
+                try { return (bool)pi.GetValue(trigger); } catch { }
+            }
+
+            // field
+            var fi = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (fi != null && fi.FieldType == typeof(bool))
+            {
+                try { return (bool)fi.GetValue(trigger); } catch { }
+            }
+
+            // method no args returning bool
+            var mi = t.GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+            if (mi != null && mi.ReturnType == typeof(bool))
+            {
+                try { return (bool)mi.Invoke(trigger, null); } catch { }
+            }
+        }
+
+        // If none present, return false (we can't tell) — caller will decide whether to wait or not.
+        return false;
+    }
+
+    private IEnumerator WaitUntilNPCIdleAndPerformChange(NPCDialogueTrigger trigger, float timeoutSeconds, Action doChange, string debugContext)
+    {
+        if (trigger == null)
+        {
+            // nothing to wait for
+            doChange?.Invoke();
+            yield break;
+        }
+
+        bool canDetect = false;
+        try
+        {
+            // call IsNPCInDialogue once to see if detection is available and whether NPC is currently speaking
+            var first = IsNPCInDialogue(trigger);
+            canDetect = true; // we could call the checker at least
+            if (!first)
+            {
+                Debug.Log($"[WizardTowerManager] {debugContext}: NPC not in dialogue — performing change immediately.");
+                doChange?.Invoke();
+                yield break;
+            }
+            // if first == true, we will wait until it's false
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[WizardTowerManager] {debugContext}: exception checking dialogue state: {ex}. Performing change immediately.");
+            doChange?.Invoke();
+            yield break;
+        }
+
+        if (!canDetect)
+        {
+            Debug.LogWarning($"[WizardTowerManager] {debugContext}: unable to detect dialogue state on NPCDialogueTrigger — performing change immediately to avoid blocking.");
+            doChange?.Invoke();
+            yield break;
+        }
+
+        float start = Time.time;
+        bool becameIdle = false;
+        while (Time.time - start < timeoutSeconds)
+        {
+            bool inDialogue = false;
+            try
+            {
+                inDialogue = IsNPCInDialogue(trigger);
+            }
+            catch { inDialogue = false; }
+
+            if (!inDialogue)
+            {
+                becameIdle = true;
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (becameIdle)
+        {
+            Debug.Log($"[WizardTowerManager] {debugContext}: NPC became idle — performing change now.");
+            doChange?.Invoke();
+        }
+        else
+        {
+            Debug.LogWarning($"[WizardTowerManager] {debugContext}: timeout waiting for NPC to finish dialogue ({timeoutSeconds}s). Forcing change as fallback.");
+            doChange?.Invoke();
         }
     }
 
+    // NEW: prefer waiting on NPCManager.IsTalking() if available (uses the NPCManager you provided)
+    private IEnumerator WaitUntilNPCManagerIdleAndPerformChange(NPCManager npcMgr, float timeoutSeconds, Action doChange, string debugContext)
+    {
+        if (npcMgr == null)
+        {
+            doChange?.Invoke();
+            yield break;
+        }
+
+        bool canDetect = true;
+        try
+        {
+            // if IsTalking() returns false, we can change immediately
+            if (!npcMgr.IsTalking())
+            {
+                Debug.Log($"[WizardTowerManager] {debugContext}: NPCManager.IsTalking() == false — performing change immediately.");
+                doChange?.Invoke();
+                yield break;
+            }
+            // otherwise we will wait for IsTalking() to become false
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[WizardTowerManager] {debugContext}: exception calling NPCManager.IsTalking(): {ex}. Falling back to trigger-reflection or performing change immediately.");
+            // fall through: attempt fallback or force change
+            doChange?.Invoke();
+            yield break;
+        }
+
+        float start = Time.time;
+        bool becameIdle = false;
+        while (Time.time - start < timeoutSeconds)
+        {
+            bool talking = false;
+            try
+            {
+                talking = npcMgr.IsTalking();
+            }
+            catch { talking = false; }
+
+            if (!talking)
+            {
+                becameIdle = true;
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (becameIdle)
+        {
+            Debug.Log($"[WizardTowerManager] {debugContext}: NPCManager reported not talking — performing change now.");
+            doChange?.Invoke();
+        }
+        else
+        {
+            Debug.LogWarning($"[WizardTowerManager] {debugContext}: timeout waiting for NPCManager.IsTalking() to become false ({timeoutSeconds}s). Forcing change as fallback.");
+            doChange?.Invoke();
+        }
+    }
+
+    // -----------------------------
+    // Change NPC ID + lines (Wizard1 -> Wizard2)
+    // -----------------------------
     private void ChangeNPCIdIfNeeded()
     {
         if (idChanged) return;
 
-        // Use DEM rename (DEM default is silent rename in your updated DEM)
-        bool changed = DialogueEventsManager.Instance?.ChangeNPCName(wizardGameObjectName, newNPCID) ?? false;
-        if (changed)
+        string oldId = GetWizardIdForChange();
+        if (string.IsNullOrWhiteSpace(oldId))
         {
-            idChanged = true;
-            Debug.Log($"[WizardTowerManager] Changed NPC '{wizardGameObjectName}' ID to '{newNPCID}' after journal acquisition.");
-
-            var go = GameObject.Find(wizardGameObjectName);
-            if (go != null)
-            {
-                var npc = go.GetComponent<NPCDialogueTrigger>();
-                if (npc != null)
-                {
-                    npc.SetDialogueLines(newWizardDialogueLines);
-                    Debug.Log($"[WizardTowerManager] Applied new dialogue lines to '{wizardGameObjectName}'.");
-                }
-            }
-
-            if (SaveLoadManager.Instance != null)
-                SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            Debug.LogWarning("[WizardTowerManager] ChangeNPCIdIfNeeded: could not get NPCDialogueTrigger.GetNPCID(), falling back to GameObject name for DEM call.");
+            oldId = GetWizardNameForChange();
         }
-        else
+
+        var trigger = GetWizardNPCTrigger();
+        var npcMgr = GetWizardNPCManager();
+
+        Action performChange = () =>
         {
-            Debug.LogWarning("[WizardTowerManager] DialogueEventsManager.ChangeNPCName returned false or DEM missing. Attempting fallback: set NPC component directly.");
-
-            var fallbackGo = GameObject.Find(wizardGameObjectName);
-            if (fallbackGo != null)
+            Debug.Log($"[WizardTowerManager] ChangeNPCIdIfNeeded: attempting DEM change '{oldId}' -> '{newNPCID}'");
+            bool changed = TryChangeNPCName(oldId, newNPCID, false);
+            if (changed)
             {
-                var npc = fallbackGo.GetComponent<NPCDialogueTrigger>();
-                if (npc != null)
-                {
-                    npc.SetNPCID(newNPCID);
-                    npc.SetDialogueLines(newWizardDialogueLines);
-                    idChanged = true;
-                }
-            }
+                idChanged = true;
+                Debug.Log($"[WizardTowerManager] DEM rename succeeded: '{oldId}' -> '{newNPCID}'.");
 
-            if (idChanged && SaveLoadManager.Instance != null)
-                SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+                // Apply new dialogue lines to the GameObject's NPC component if present
+                var go = GetWizardGameObject();
+                if (go != null)
+                {
+                    var npc = go.GetComponent<NPCDialogueTrigger>();
+                    if (npc != null)
+                    {
+                        npc.SetDialogueLines(newWizardDialogueLines);
+                        Debug.Log($"[WizardTowerManager] Applied new dialogue lines to '{go.name}'.");
+                    }
+                }
+
+                if (SaveLoadManager.Instance != null)
+                    SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            }
+            else
+            {
+                Debug.LogWarning("[WizardTowerManager] DEM rename failed or DEM missing — falling back to directly setting NPC component.");
+                var fallbackGo = GetWizardGameObject();
+                if (fallbackGo != null)
+                {
+                    var npc = fallbackGo.GetComponent<NPCDialogueTrigger>();
+                    if (npc != null)
+                    {
+                        npc.SetNPCID(newNPCID);
+                        npc.SetDialogueLines(newWizardDialogueLines);
+                        idChanged = true;
+                        Debug.Log($"[WizardTowerManager] Fallback: set NPC component id -> '{newNPCID}' and updated lines.");
+                    }
+                }
+
+                if (idChanged && SaveLoadManager.Instance != null)
+                    SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            }
+        };
+
+        // Prefer waiting on NPCManager.IsTalking() if available
+        if (npcMgr != null)
+        {
+            bool isTalking = false;
+            try { isTalking = npcMgr.IsTalking(); } catch { isTalking = false; }
+
+            if (isTalking)
+            {
+                Debug.Log("[WizardTowerManager] ChangeNPCIdIfNeeded: NPCManager reports NPC is talking — will wait until it's finished before changing ID/lines.");
+                StartCoroutine(WaitUntilNPCManagerIdleAndPerformChange(npcMgr, idleWaitTimeout, performChange, "ChangeNPCIdIfNeeded"));
+                return;
+            }
         }
+
+        // fallback to trigger-reflection detection
+        if (trigger != null)
+        {
+            bool inDialogue = false;
+            try { inDialogue = IsNPCInDialogue(trigger); } catch { inDialogue = false; }
+
+            if (inDialogue)
+            {
+                Debug.Log("[WizardTowerManager] ChangeNPCIdIfNeeded: NPCDialogueTrigger reports NPC is in dialogue — will wait until dialogue finished before changing ID/lines.");
+                StartCoroutine(WaitUntilNPCIdleAndPerformChange(trigger, idleWaitTimeout, performChange, "ChangeNPCIdIfNeeded"));
+                return;
+            }
+        }
+
+        // nothing to wait on: perform immediately
+        performChange();
     }
 
-    // --------------------
-    // Wizard2 -> Portal -> Wizard3 flow
-    // --------------------
+    // -----------------------------
+    // Wizard2 -> Portal -> Wizard3
+    // -----------------------------
     private void OnWizard2Triggered()
     {
         if (wizard2Triggered) return;
         wizard2Triggered = true;
-
         Debug.Log("[WizardTowerManager] OnWizard2Triggered called.");
 
-        // DON'T immediately show the portal here unless the player already interacted with the journal.
-        // We'll wait for MonitorJournalInteraction to notice the player opening the Journal UI.
         if (!journalInteracted)
         {
             Debug.Log("[WizardTowerManager] Wizard2 triggered — waiting for player to open Journal before showing portal.");
             return;
         }
 
-        // If journal has already been interacted with, we can activate the portal now (if not already activated).
         if (portalGameObject != null && !portalActivated && !portalGameObject.activeInHierarchy)
         {
             portalGameObject.SetActive(true);
-            // portalActivated will be set by MonitorPortalGameObjectActive on the next frame, but set it defensively here as well
             portalActivated = true;
             Debug.Log("[WizardTowerManager] Activated the portal GameObject because Wizard2 was triggered and journal was interacted with.");
-
-            // Persist activation
             PersistPortalActivated();
-
             TryChangeWizard2Id();
         }
     }
 
     private void HandlePortalAvailabilityChanged(bool available)
     {
-        // portalAvailability likely indicates "player collected/used portal" or some availability state.
-        // We record it but DO NOT use it to decide when to bump the NPC id to Wizard3 (that decision is based
-        // on portal activation + wizard2 trigger + journal interaction).
         portalAcquired = available;
-
         Debug.Log($"[WizardTowerManager] HandlePortalAvailabilityChanged: available={available}");
-
-        // If both conditions are already met, ensure we progress.
         TryChangeWizard2Id();
     }
 
-    // Attempts to perform the Wizard2->Wizard3 rename only when the portal is active/visible
-    // in the scene AND Wizard2 has been marked triggered by the DEM.
     private void TryChangeWizard2Id()
     {
         if (idChangedTo3) return;
@@ -460,14 +734,12 @@ public class WizardTowerManager : MonoBehaviour
             return;
         }
 
-        // Additionally ensure the player has interacted with the journal before proceeding
         if (!journalInteracted)
         {
             Debug.Log("[WizardTowerManager] TryChangeWizard2Id: waiting for player to interact with Journal UI.");
             return;
         }
 
-        // Both conditions satisfied — perform the id change.
         ChangeWizard2IdIfNeeded();
     }
 
@@ -475,55 +747,98 @@ public class WizardTowerManager : MonoBehaviour
     {
         if (idChangedTo3) return;
 
-        // Extra guard: both conditions required (defensive)
         if (!portalActivated || !wizard2Triggered || !journalInteracted)
         {
             Debug.Log("[WizardTowerManager] ChangeWizard2IdIfNeeded called but prerequisites not met. Aborting.");
             return;
         }
 
-        bool changed = DialogueEventsManager.Instance?.ChangeNPCName(wizardGameObjectName, newNPCID2) ?? false;
-        if (changed)
+        string oldId = GetWizardIdForChange();
+        if (string.IsNullOrWhiteSpace(oldId))
         {
-            idChangedTo3 = true;
-            Debug.Log($"[WizardTowerManager] Changed NPC '{wizardGameObjectName}' ID to '{newNPCID2}' after portal activation and Wizard2 trigger and Journal interaction.");
-
-            var go = GameObject.Find(wizardGameObjectName);
-            if (go != null)
-            {
-                var npc = go.GetComponent<NPCDialogueTrigger>();
-                if (npc != null)
-                {
-                    npc.SetDialogueLines(newWizard3DialogueLines);
-                    Debug.Log($"[WizardTowerManager] Applied new dialogue lines (Wizard3) to '{wizardGameObjectName}'.");
-                }
-            }
-
-            if (SaveLoadManager.Instance != null)
-                SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            Debug.LogWarning("[WizardTowerManager] ChangeWizard2IdIfNeeded: could not get NPCDialogueTrigger.GetNPCID(), falling back to GameObject name for DEM call.");
+            oldId = GetWizardNameForChange();
         }
-        else
+
+        var trigger = GetWizardNPCTrigger();
+        var npcMgr = GetWizardNPCManager();
+
+        Action performChange = () =>
         {
-            Debug.LogWarning("[WizardTowerManager] DialogueEventsManager.ChangeNPCName returned false or DEM missing for Wizard2->Wizard3. Attempting fallback.");
-
-            var fallbackGo = GameObject.Find(wizardGameObjectName);
-            if (fallbackGo != null)
+            Debug.Log($"[WizardTowerManager] ChangeWizard2IdIfNeeded: attempting DEM change '{oldId}' -> '{newNPCID2}'");
+            bool changed = TryChangeNPCName(oldId, newNPCID2, false);
+            if (changed)
             {
-                var npc = fallbackGo.GetComponent<NPCDialogueTrigger>();
-                if (npc != null)
-                {
-                    npc.SetNPCID(newNPCID2);
-                    npc.SetDialogueLines(newWizard3DialogueLines);
-                    idChangedTo3 = true;
-                }
-            }
+                idChangedTo3 = true;
+                Debug.Log($"[WizardTowerManager] DEM rename succeeded: '{oldId}' -> '{newNPCID2}'.");
 
-            if (idChangedTo3 && SaveLoadManager.Instance != null)
-                SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+                var go = GetWizardGameObject();
+                if (go != null)
+                {
+                    var npc = go.GetComponent<NPCDialogueTrigger>();
+                    if (npc != null)
+                    {
+                        npc.SetDialogueLines(newWizard3DialogueLines);
+                        Debug.Log($"[WizardTowerManager] Applied new Wizard3 dialogue lines to '{go.name}'.");
+                    }
+                }
+
+                if (SaveLoadManager.Instance != null)
+                    SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            }
+            else
+            {
+                Debug.LogWarning("[WizardTowerManager] DEM rename failed for Wizard2->Wizard3 — falling back to component change.");
+                var fallbackGo = GetWizardGameObject();
+                if (fallbackGo != null)
+                {
+                    var npc = fallbackGo.GetComponent<NPCDialogueTrigger>();
+                    if (npc != null)
+                    {
+                        npc.SetNPCID(newNPCID2);
+                        npc.SetDialogueLines(newWizard3DialogueLines);
+                        idChangedTo3 = true;
+                        Debug.Log("[WizardTowerManager] Fallback: set NPC component id -> '" + newNPCID2 + "' and updated lines.");
+                    }
+                }
+
+                if (idChangedTo3 && SaveLoadManager.Instance != null)
+                    SaveLoadManager.Instance.SaveGame(SaveLoadManager.Instance.currentSaveSlot);
+            }
+        };
+
+        // Prefer waiting on NPCManager.IsTalking() if available
+        if (npcMgr != null)
+        {
+            bool isTalking = false;
+            try { isTalking = npcMgr.IsTalking(); } catch { isTalking = false; }
+
+            if (isTalking)
+            {
+                Debug.Log("[WizardTowerManager] ChangeWizard2IdIfNeeded: NPCManager reports NPC is talking — will wait until it's finished before changing ID/lines.");
+                StartCoroutine(WaitUntilNPCManagerIdleAndPerformChange(npcMgr, idleWaitTimeout, performChange, "ChangeWizard2IdIfNeeded"));
+                return;
+            }
         }
+
+        // fallback to trigger-reflection detection
+        if (trigger != null)
+        {
+            bool inDialogue = false;
+            try { inDialogue = IsNPCInDialogue(trigger); } catch { inDialogue = false; }
+
+            if (inDialogue)
+            {
+                Debug.Log("[WizardTowerManager] ChangeWizard2IdIfNeeded: NPCDialogueTrigger reports NPC is in dialogue — will wait until dialogue finished before changing ID/lines.");
+                StartCoroutine(WaitUntilNPCIdleAndPerformChange(trigger, idleWaitTimeout, performChange, "ChangeWizard2IdIfNeeded"));
+                return;
+            }
+        }
+
+        // nothing to wait on: perform immediately
+        performChange();
     }
 
-    // Small helper to activate portal and try the id-change (keeps duplicate logic compact)
     private void ActivatePortalAndTryChange()
     {
         if (portalGameObject == null)
@@ -537,11 +852,131 @@ public class WizardTowerManager : MonoBehaviour
             portalGameObject.SetActive(true);
             portalActivated = true;
             Debug.Log("[WizardTowerManager] Activated portal GameObject due to Journal interaction.");
-
-            // Persist activation
             PersistPortalActivated();
         }
 
         TryChangeWizard2Id();
+    }
+
+    // -----------------------------
+    // Utilities
+    // -----------------------------
+    private GameObject GetWizardGameObject()
+    {
+        if (wizardGameObject != null) return wizardGameObject;
+
+        if (!string.IsNullOrEmpty(wizardGameObjectName))
+        {
+            var go = GameObject.Find(wizardGameObjectName);
+            if (go != null) return go;
+        }
+
+        if (!string.IsNullOrEmpty(wizardTag))
+        {
+            try
+            {
+                var go = GameObject.FindWithTag(wizardTag);
+                if (go != null) return go;
+            }
+            catch { } // tag may not exist
+        }
+
+        Debug.LogWarning("[WizardTowerManager] GetWizardGameObject: could not find wizard by inspector slot, name, or tag.");
+        return null;
+    }
+
+    // Prefer asking the NPCDialogueTrigger for the real NPC ID (this is the fix).
+    private NPCDialogueTrigger GetWizardNPCTrigger()
+    {
+        var go = GetWizardGameObject();
+        if (go == null) return null;
+        return go.GetComponent<NPCDialogueTrigger>();
+    }
+
+    // NEW: prefer getting NPCManager so we can check IsTalking()
+    private NPCManager GetWizardNPCManager()
+    {
+        var go = GetWizardGameObject();
+        if (go == null) return null;
+        return go.GetComponent<NPCManager>();
+    }
+
+    // returns the NPC ID that DEM knows about (preferred)
+    private string GetWizardIdForChange()
+    {
+        var trigger = GetWizardNPCTrigger();
+        if (trigger != null)
+        {
+            try
+            {
+                var id = trigger.GetNPCID();
+                if (!string.IsNullOrWhiteSpace(id))
+                    return id;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WizardTowerManager] GetWizardIdForChange: exception calling trigger.GetNPCID(): {ex}");
+            }
+        }
+
+        return null;
+    }
+
+    // For DEM.ChangeNPCName reflection fallback; prefer wizardGameObject's name when no trigger exists
+    private string GetWizardNameForChange()
+    {
+        if (wizardGameObject != null) return wizardGameObject.name;
+        if (!string.IsNullOrWhiteSpace(wizardGameObjectName)) return wizardGameObjectName;
+        return "Wizard";
+    }
+
+    /// <summary>
+    /// Try to call DialogueEventsManager.ChangeNPCName with either (string, string, bool) or (string, string)
+    /// Returns true if a call succeeded and returned true.
+    /// Uses reflection to remain compatible with different DEM versions.
+    /// </summary>
+    private bool TryChangeNPCName(string oldName, string newName, bool moveTriggeredState = false)
+    {
+        var dem = DEM ?? DialogueEventsManager.Instance;
+        if (dem == null)
+        {
+            Debug.LogWarning("[WizardTowerManager] TryChangeNPCName: DEM is null.");
+            return false;
+        }
+
+        Type t = dem.GetType();
+
+        // Try 3-arg: (string, string, bool)
+        var m3 = t.GetMethod("ChangeNPCName", new Type[] { typeof(string), typeof(string), typeof(bool) });
+        if (m3 != null)
+        {
+            try
+            {
+                var res = m3.Invoke(dem, new object[] { oldName, newName, moveTriggeredState });
+                if (res is bool b) return b;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WizardTowerManager] TryChangeNPCName: exception invoking 3-arg ChangeNPCName: {ex}");
+            }
+        }
+
+        // Try 2-arg: (string, string)
+        var m2 = t.GetMethod("ChangeNPCName", new Type[] { typeof(string), typeof(string) });
+        if (m2 != null)
+        {
+            try
+            {
+                var res = m2.Invoke(dem, new object[] { oldName, newName });
+                if (res is bool b) return b;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WizardTowerManager] TryChangeNPCName: exception invoking 2-arg ChangeNPCName: {ex}");
+            }
+        }
+
+        Debug.LogWarning("[WizardTowerManager] TryChangeNPCName: no compatible ChangeNPCName overload found on DEM or call failed.");
+        return false;
     }
 }
