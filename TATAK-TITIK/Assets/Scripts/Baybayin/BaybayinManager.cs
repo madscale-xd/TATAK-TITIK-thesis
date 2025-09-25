@@ -23,12 +23,13 @@ public class BaybayinManager : MonoBehaviour
     public GameObject GreenLeaves;
     public GameObject PinkLeaves;
     public GameObject SteamedPink;
+    public GameObject Kipings;
 
     public GameObject RiceBowlKALAN;
     public GameObject PaintBowlKALAN;
     public GameObject GalapongBowlKALAN;
     public GameObject HANGERHarvest;
-
+    public GameObject SumanGroup;
     public GameObject DanceGroup;
 
     [Header("Optional: final move target (not required)")]
@@ -123,6 +124,14 @@ public class BaybayinManager : MonoBehaviour
     public string[] Kiko15Lines = new string[] { "" };
     public string[] Kiko16Lines = new string[] { "" };
     public string[] Kiko17Lines = new string[] { "" };
+    public string[] Kiko18Lines = new string[] { "" };
+    public string[] Kiko19Lines = new string[] { "" };
+    public string[] Kiko20Lines = new string[] { "" };
+    public string[] Kiko21Lines = new string[] { "" };
+    public string[] Kiko22Lines = new string[] { "" };
+    public string[] Babaylan6Lines = new string[] { "" };
+    public string[] Kiko23Lines = new string[] { "" };
+    public string[] Babaylan7Lines = new string[] { "" };
 
     [Header("New Journal Entries")]
     JournalTriggerEntry[] Babaylan2Journal = new JournalTriggerEntry[]{
@@ -162,14 +171,18 @@ public class BaybayinManager : MonoBehaviour
         new JournalTriggerEntry { key = "galapong", displayWord = "ᜄᜎᜉᜓᜅ᜔"}};
 
     JournalTriggerEntry[] Kiko11Journal = new JournalTriggerEntry[]{
-        new JournalTriggerEntry { key = "pintura", displayWord = "ᜉᜒᜈ᜔ᜆᜓᜇ"}};
+        new JournalTriggerEntry { key = "pintura", displayWord = "ᜉᜒᜈ᜔ᜆᜓᜍ"}};
 
     JournalTriggerEntry[] Kiko15Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "usok", displayWord = "ᜂᜐᜓᜃ᜔"},
-        new JournalTriggerEntry { key = "tigas", displayWord = "ᜄᜎᜉᜓᜅ᜔"}};
+        new JournalTriggerEntry { key = "tigas", displayWord = "ᜆᜒᜄᜐ᜔"}};
 
     JournalTriggerEntry[] Kiko17Journal = new JournalTriggerEntry[]{
         new JournalTriggerEntry { key = "baliskog", displayWord = "ᜊᜎᜒᜐ᜔ᜃᜓᜄ᜔"}};
+    JournalTriggerEntry[] Kiko18Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "suman", displayWord = "ᜐᜓᜋᜈ᜔"}};
+    JournalTriggerEntry[] Kiko19Journal = new JournalTriggerEntry[]{
+        new JournalTriggerEntry { key = "sayaw", displayWord = "ᜐᜌᜏ᜔"}};
 
     private void OnEnable()
     {
@@ -270,6 +283,21 @@ public class BaybayinManager : MonoBehaviour
             Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — calling OnKiko7Detected().");
             Task7();
         }
+        if (!string.IsNullOrWhiteSpace("Kiko18") && string.Equals("Kiko18", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko18");
+            Task19();
+        }
+        if (!string.IsNullOrWhiteSpace("Kiko19") && string.Equals("Kiko19", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko19");
+            Task21();
+        }
+        if (!string.IsNullOrWhiteSpace("Kiko20") && string.Equals("Kiko20", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko20");
+            Task23();
+        }
     }
 
     /// <summary>
@@ -321,6 +349,21 @@ public class BaybayinManager : MonoBehaviour
         {
             Debug.Log($"[BaybayinManager] OnDialogueFinished: detected '{npcID}' — calling OnKiko7Detected().");
             Task7();
+        }
+        if (!string.IsNullOrWhiteSpace("Kiko18") && string.Equals("Kiko18", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko18");
+            Task19();
+        }
+        if (!string.IsNullOrWhiteSpace("Kiko19") && string.Equals("Kiko19", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko19");
+            Task21();
+        }
+        if (!string.IsNullOrWhiteSpace("Kiko20") && string.Equals("Kiko20", npcID, StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.Log($"[BaybayinManager] Detected trigger for '{npcID}' — Kiko20");
+            Task23();
         }
     }
 
@@ -477,12 +520,25 @@ public class BaybayinManager : MonoBehaviour
 
             case "task15":
                 break;
-            
+
             case "task16":
-                Babaylan.EnqueueDestination(waypoints[16]);
+                SumanGroup.SetActive(true);
                 SteamedPink.SetActive(true);
                 break;
-            
+            case "task17":
+                break;
+            case "task18":
+                break;
+            case "task19":
+                break;
+            case "task20":
+                break;
+            case "task21":
+                break;
+            case "task22":
+                break;
+            case "task23":
+                break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyTaskEffects: no explicit handler for '{taskName}'.");
                 break;
@@ -619,6 +675,7 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task15":
+                Babaylan.EnqueueDestination(waypoints[16]);
                 DNC.SetTimeOfDay(10f, 5f);
                 Kiko.ChangeNPCID("Kiko15", false);
                 Kiko.SetDialogueLines(Kiko15Lines);
@@ -627,6 +684,7 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task16":
+                Babaylan.EnqueueDestination(waypoints[16]);
                 DNC.SetTimeOfDay(11f, 20f);
                 Kiko.ChangeNPCID("Kiko16", false);
                 Kiko.SetDialogueLines(Kiko16Lines);
@@ -634,9 +692,36 @@ public class BaybayinManager : MonoBehaviour
                 break;
 
             case "task17":
+                Kiko.ChangeNPCID("Kiko17", false);
+                Kiko.SetDialogueLines(Kiko17Lines);
+                Kiko.SetJournalEntries(Kiko17Journal);
                 break;
-
-
+            case "task18":
+                Kiko.ChangeNPCID("Kiko18", false);
+                Kiko.SetDialogueLines(Kiko18Lines);
+                Kiko.SetJournalEntries(Kiko18Journal);
+                break;
+            case "task19":
+                DNC.SetTimeOfDay(12f, 10f);
+                Kiko.EnqueueDestination(waypoints[11]);
+                break;
+            case "task20":
+                Kiko.ChangeNPCID("Kiko19", false);
+                Kiko.SetDialogueLines(Kiko19Lines);
+                Kiko.SetJournalEntries(Kiko19Journal);
+                break;
+            case "task21":
+                DNC.SetTimeOfDay(13f, 10f);
+                Kiko.EnqueueDestination(waypoints[9]);
+                break;
+            case "task22":
+                Kiko.ChangeNPCID("Kiko20", false);
+                Kiko.SetDialogueLines(Kiko20Lines);
+                break;
+            case "task23":
+                 DNC.SetTimeOfDay(14f, 10f);
+                Kiko.EnqueueDestination(waypoints[20]);
+                break;
             default:
                 Debug.Log($"[BaybayinManager] ApplyStartEffects: no explicit handler for '{taskName}'.");
                 break;
@@ -686,7 +771,7 @@ public class BaybayinManager : MonoBehaviour
     {
         if (IsTaskCompleted("task1"))
         {
-            Debug.Log("[BaybayinManager] MarkTask2Completed: already completed, ignoring.");
+            Debug.Log("[BaybayinManager] MarkTask1Completed: already completed, ignoring.");
             return;
         }
         MarkTaskCompleted("task1");
@@ -1067,10 +1152,69 @@ public class BaybayinManager : MonoBehaviour
         MarkTaskStarted("task16");
     }
 
-    public void Task17()    //explore
+    public void Task17()    //leaves hanged, go to SUMAN
     {
         Debug.Log("Task 17 time");
+        Kiko.ChangeNPCID("Kiko17", false);
+        Kiko.SetDialogueLines(Kiko17Lines);
+        Kiko.SetJournalEntries(Kiko17Journal);
+        Kiko.PlayDialogue("KIKO", Kiko17Lines, Kiko17Journal);
+        Kiko.EnqueueDestination(waypoints[22]);
         MarkTaskCompleted("task16");
         MarkTaskStarted("task17");
+    }
+
+    public void Task18()    //reaching SUMAN, talk to him
+    {
+        Debug.Log("Task 18 time");
+        Kiko.ChangeNPCID("Kiko18", false);
+        Kiko.SetDialogueLines(Kiko18Lines);
+        Kiko.SetJournalEntries(Kiko18Journal);
+        MarkTaskCompleted("task17");
+        MarkTaskStarted("task18");
+    }
+
+    public void Task19()    //talk to him in SUMAN so he can enqueue destination to dance
+    {
+        DNC.SetTimeOfDay(12f, 10f);
+        Debug.Log("Task 19 time");
+        Kiko.EnqueueDestination(waypoints[11]);
+        MarkTaskCompleted("task18");
+        MarkTaskStarted("task19");
+    }
+    public void Task20()    //reaching DANCERS
+    {
+        Debug.Log("Task 20 time");
+        Kiko.ChangeNPCID("Kiko19", false);
+        Kiko.SetDialogueLines(Kiko19Lines);
+        Kiko.SetJournalEntries(Kiko19Journal);
+        MarkTaskCompleted("task19");
+        MarkTaskStarted("task20");
+    }
+
+    public void Task21()    //talk to him in DANCERS so he can enqueue destination to baliskog
+    {
+        DNC.SetTimeOfDay(13f, 10f);
+        Debug.Log("Task 21 time");
+        Kiko.EnqueueDestination(waypoints[9]);
+        MarkTaskCompleted("task20");
+        MarkTaskStarted("task21");
+    }
+    public void Task22()    //reaching BALISKOG
+    {
+        Debug.Log("Task 22 time");
+        Kiko.ChangeNPCID("Kiko20", false);
+        Kiko.SetDialogueLines(Kiko20Lines);
+        MarkTaskCompleted("task21");
+        MarkTaskStarted("task22");
+    }
+
+    public void Task23()    //talk to him in BALISKOG so he can enqueue destination back to HANGERS
+    {
+        DNC.SetTimeOfDay(14f, 10f);
+        Debug.Log("Task 23 time");
+        Kiko.EnqueueDestination(waypoints[20]);
+        MarkTaskCompleted("task22");
+        MarkTaskStarted("task23");
     }
 }
