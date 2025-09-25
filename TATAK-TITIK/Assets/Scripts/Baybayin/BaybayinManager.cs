@@ -479,6 +479,7 @@ public class BaybayinManager : MonoBehaviour
                 break;
             
             case "task16":
+                Babaylan.EnqueueDestination(waypoints[16]);
                 SteamedPink.SetActive(true);
                 break;
             
